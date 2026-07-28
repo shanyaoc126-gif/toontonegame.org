@@ -1,33 +1,53 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useId } from 'react';
 import {
-  RGB, HSB, CMYK, ColorMode,
-  generateRandomColor, hsbToRgb, rgbToHsb, rgbToCmyk, cmykToRgb,
+  RGB, HSB, ColorMode,
+  generateRandomColor, hsbToRgb, rgbToHsbPrecise, rgbToCmyk, cmykToRgb,
   deltaE2000, calculateScore, rgbToHex,
 } from '../lib/color-utils';
 
-type GameState = 'idle' | 'playing' | 'submitted';
+type GameState = 'idle' | 'playing' | 'submitted' | 'finished';
+
+const TOTAL_ROUNDS = 5;
+const INITIAL_HSB: HSB = { h: 0, s: 0, b: 50 };
+
+interface RoundResult {
+  round: number;
+  score: number;
+  deltaE: number;
+  target: string;
+  guess: string;
+}
+
+function ratingFor(average: number): { label: string; blurb: string } {
+  if (average >= 90) return { label: '🏆 Color Master', blurb: 'Near-perfect pitch. Your eyes are basically a spectrophotometer.' };
+  if (average >= 75) return { label: '🥇 Color Pro', blurb: 'Great color perception — only subtle shades slip past you.' };
+  if (average >= 60) return { label: '🎨 Color Apprentice', blurb: 'Solid eye! A bit more practice with saturation and brightness.' };
+  return { label: '🌱 Color Novice', blurb: 'Warming up! Try focusing on one channel at a time.' };
+}
 
 export default function ColorGame() {
   const [mode, setMode] = useState<ColorMode>('hsb');
   const [targetColor, setTargetColor] = useState<RGB>({ r: 128, g: 128, b: 128 });
-  const [userColor, setUserColor] = useState<RGB>({ r: 128, g: 128, b: 128 });
+  // HSB is the single internal source of truth. RGB/CMYK are one-way derived
+  // for display only, which eliminates round-trip rounding drift between modes.
+  const [userHsb, setUserHsb] = useState<HSB>(INITIAL_HSB);
   const [gameState, setGameState] = useState<GameState>('idle');
   const [score, setScore] = useState<number>(0);
   const [round, setRound] = useState<number>(1);
-  const [totalScore, setTotalScore] = useState<number>(0);
-  const [history, setHistory] = useState<{ round: number; score: number; deltaE: number }[]>([]);
+  const [history, setHistory] = useState<RoundResult[]>([]);
   const [showCopied, setShowCopied] = useState(false);
 
+  const userColor = hsbToRgb(userHsb);
+  const totalScore = history.reduce((sum, h) => sum + h.score, 0);
+
   const startGame = useCallback(() => {
-    const newTarget = generateRandomColor();
-    setTargetColor(newTarget);
-    setUserColor({ r: 128, g: 128, b: 128 });
+    setTargetColor(generateRandomColor());
+    setUserHsb(INITIAL_HSB);
     setGameState('playing');
     setScore(0);
     setRound(1);
-    setTotalScore(0);
     setHistory([]);
   }, []);
 
@@ -35,57 +55,67 @@ export default function ColorGame() {
     const deltaE = deltaE2000(targetColor, userColor);
     const roundScore = calculateScore(deltaE);
     setScore(roundScore);
-    setTotalScore(prev => prev + roundScore);
-    setHistory(prev => [...prev, { round, score: roundScore, deltaE }]);
-    setGameState('submitted');
+    const entry: RoundResult = {
+      round,
+      score: roundScore,
+      deltaE,
+      target: rgbToHex(targetColor),
+      guess: rgbToHex(userColor),
+    };
+    setHistory(prev => [...prev, entry]);
+    setGameState(round >= TOTAL_ROUNDS ? 'finished' : 'submitted');
   }, [targetColor, userColor, round]);
 
   const nextRound = useCallback(() => {
-    const newTarget = generateRandomColor();
-    setTargetColor(newTarget);
-    setUserColor({ r: 128, g: 128, b: 128 });
+    if (round >= TOTAL_ROUNDS) return;
+    setTargetColor(generateRandomColor());
+    setUserHsb(INITIAL_HSB);
     setRound(prev => prev + 1);
     setGameState('playing');
-  }, []);
+  }, [round]);
 
   const copyResult = useCallback(() => {
-    const text = `🎨 ToonTone Challenge - Round ${round}\nScore: ${score}/100 | ΔE: ${history[history.length - 1]?.deltaE.toFixed(2) || 0}\nTarget: ${rgbToHex(targetColor)} | My guess: ${rgbToHex(userColor)}`;
-    navigator.clipboard.writeText(text);
+    const last = history[history.length - 1];
+    const text = `🎨 ToonTone Challenge - Round ${round}/${TOTAL_ROUNDS}\nScore: ${score}/100 | ΔE: ${last ? last.deltaE.toFixed(2) : '0'}\nTarget: ${rgbToHex(targetColor)} | My guess: ${rgbToHex(userColor)}`;
+    navigator.clipboard.writeText(text).catch(() => {
+      // Clipboard can be unavailable (permissions, non-secure context); ignore.
+    });
     setShowCopied(true);
     setTimeout(() => setShowCopied(false), 2000);
   }, [round, score, history, targetColor, userColor]);
 
-  // Slider components based on mode
+  // Slider components based on mode — every mode edits userHsb only.
   const renderSliders = () => {
     if (mode === 'hsb') {
-      const hsb = rgbToHsb(userColor);
+      const hsb = userHsb;
       return (
         <div className="space-y-4">
-          <Slider label="Hue" value={hsb.h} min={0} max={360} unit="°"
+          <Slider label="Hue" value={Math.round(hsb.h)} min={0} max={360} unit="°"
             gradient="linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)"
-            onChange={(v) => setUserColor(hsbToRgb({ ...hsb, h: v }))} />
-          <Slider label="Saturation" value={hsb.s} min={0} max={100} unit="%"
+            onChange={(v) => setUserHsb({ ...hsb, h: v })} />
+          <Slider label="Saturation" value={Math.round(hsb.s)} min={0} max={100} unit="%"
             gradient={`linear-gradient(to right, gray, ${rgbToHex(hsbToRgb({ ...hsb, s: 100 }))})`}
-            onChange={(v) => setUserColor(hsbToRgb({ ...hsb, s: v }))} />
-          <Slider label="Brightness" value={hsb.b} min={0} max={100} unit="%"
+            onChange={(v) => setUserHsb({ ...hsb, s: v })} />
+          <Slider label="Brightness" value={Math.round(hsb.b)} min={0} max={100} unit="%"
             gradient={`linear-gradient(to right, black, ${rgbToHex(hsbToRgb({ ...hsb, b: 100 }))})`}
-            onChange={(v) => setUserColor(hsbToRgb({ ...hsb, b: v }))} />
+            onChange={(v) => setUserHsb({ ...hsb, b: v })} />
         </div>
       );
     }
 
     if (mode === 'rgb') {
+      const rgb = userColor;
       return (
         <div className="space-y-4">
-          <Slider label="Red" value={userColor.r} min={0} max={255} unit=""
+          <Slider label="Red" value={rgb.r} min={0} max={255} unit=""
             gradient="linear-gradient(to right, #000, #f00)"
-            onChange={(v) => setUserColor({ ...userColor, r: v })} />
-          <Slider label="Green" value={userColor.g} min={0} max={255} unit=""
+            onChange={(v) => setUserHsb(rgbToHsbPrecise({ ...rgb, r: v }))} />
+          <Slider label="Green" value={rgb.g} min={0} max={255} unit=""
             gradient="linear-gradient(to right, #000, #0f0)"
-            onChange={(v) => setUserColor({ ...userColor, g: v })} />
-          <Slider label="Blue" value={userColor.b} min={0} max={255} unit=""
+            onChange={(v) => setUserHsb(rgbToHsbPrecise({ ...rgb, g: v }))} />
+          <Slider label="Blue" value={rgb.b} min={0} max={255} unit=""
             gradient="linear-gradient(to right, #000, #00f)"
-            onChange={(v) => setUserColor({ ...userColor, b: v })} />
+            onChange={(v) => setUserHsb(rgbToHsbPrecise({ ...rgb, b: v }))} />
         </div>
       );
     }
@@ -96,20 +126,99 @@ export default function ColorGame() {
         <div className="space-y-4">
           <Slider label="Cyan" value={cmyk.c} min={0} max={100} unit="%"
             gradient="linear-gradient(to right, white, #00bcd4)"
-            onChange={(v) => setUserColor(cmykToRgb({ ...cmyk, c: v }))} />
+            onChange={(v) => setUserHsb(rgbToHsbPrecise(cmykToRgb({ ...cmyk, c: v })))} />
           <Slider label="Magenta" value={cmyk.m} min={0} max={100} unit="%"
             gradient="linear-gradient(to right, white, #e91e63)"
-            onChange={(v) => setUserColor(cmykToRgb({ ...cmyk, m: v }))} />
+            onChange={(v) => setUserHsb(rgbToHsbPrecise(cmykToRgb({ ...cmyk, m: v })))} />
           <Slider label="Yellow" value={cmyk.y} min={0} max={100} unit="%"
             gradient="linear-gradient(to right, white, #ffeb3b)"
-            onChange={(v) => setUserColor(cmykToRgb({ ...cmyk, y: v }))} />
+            onChange={(v) => setUserHsb(rgbToHsbPrecise(cmykToRgb({ ...cmyk, y: v })))} />
           <Slider label="Key (Black)" value={cmyk.k} min={0} max={100} unit="%"
             gradient="linear-gradient(to right, white, black)"
-            onChange={(v) => setUserColor(cmykToRgb({ ...cmyk, k: v }))} />
+            onChange={(v) => setUserHsb(rgbToHsbPrecise(cmykToRgb({ ...cmyk, k: v })))} />
         </div>
       );
     }
   };
+
+  // Final settlement screen after round 5
+  if (gameState === 'finished') {
+    const average = history.length > 0 ? totalScore / history.length : 0;
+    const rating = ratingFor(average);
+    return (
+      <div className="max-w-2xl mx-auto p-4">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold mb-2">🎨 ToonTone Challenge</h1>
+          <p className="text-gray-600">Match the target color as closely as possible!</p>
+        </div>
+
+        <div
+          className="bg-white rounded-xl p-6 shadow-md text-center"
+          role="status"
+          aria-live="polite"
+        >
+          <h2 className="text-2xl font-bold mb-1">Game Over</h2>
+          <p className="text-xl font-bold text-blue-600 mb-1">{rating.label}</p>
+          <p className="text-sm text-gray-500 mb-6">{rating.blurb}</p>
+
+          <div className="flex justify-center gap-8 mb-6">
+            <div>
+              <p className="text-3xl font-bold">{totalScore}</p>
+              <p className="text-xs text-gray-500">Total / {TOTAL_ROUNDS * 100}</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold">{average.toFixed(1)}</p>
+              <p className="text-xs text-gray-500">Avg per round</p>
+            </div>
+          </div>
+
+          <div className="text-left mb-6">
+            <h3 className="font-bold mb-2 text-sm text-gray-700">Round breakdown</h3>
+            <ul className="space-y-2">
+              {history.map((h) => (
+                <li
+                  key={h.round}
+                  className="flex items-center gap-3 text-sm border border-gray-100 rounded-lg px-3 py-2"
+                >
+                  <span className="font-medium w-14">R{h.round}</span>
+                  <span
+                    className="w-6 h-6 rounded border border-gray-200 inline-block"
+                    style={{ backgroundColor: h.target }}
+                    role="img"
+                    aria-label={`Target color ${h.target}`}
+                  />
+                  <span className="text-gray-400">→</span>
+                  <span
+                    className="w-6 h-6 rounded border border-gray-200 inline-block"
+                    style={{ backgroundColor: h.guess }}
+                    role="img"
+                    aria-label={`Your color ${h.guess}`}
+                  />
+                  <span className="font-mono text-xs text-gray-500">ΔE {h.deltaE.toFixed(2)}</span>
+                  <span
+                    className={`ml-auto px-2 py-0.5 rounded text-xs font-medium ${
+                      h.score >= 90 ? 'bg-green-100 text-green-700' :
+                      h.score >= 70 ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'
+                    }`}
+                  >
+                    {h.score}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <button
+            onClick={startGame}
+            className="px-8 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg"
+          >
+            Play Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto p-4">
@@ -148,6 +257,11 @@ export default function ColorGame() {
         </div>
       ) : (
         <>
+          {/* Round indicator */}
+          <p className="text-center text-sm font-medium text-gray-600 mb-4">
+            Round {round}/{TOTAL_ROUNDS}
+          </p>
+
           {/* Color Comparison */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="text-center">
@@ -155,6 +269,8 @@ export default function ColorGame() {
               <div
                 className="w-full h-32 rounded-xl shadow-inner border-2 border-gray-200"
                 style={{ backgroundColor: rgbToHex(targetColor) }}
+                role="img"
+                aria-label={`Target color ${rgbToHex(targetColor)}`}
               />
               <p className="text-xs text-gray-400 mt-1 font-mono">{rgbToHex(targetColor)}</p>
             </div>
@@ -163,6 +279,8 @@ export default function ColorGame() {
               <div
                 className="w-full h-32 rounded-xl shadow-inner border-2 border-gray-200"
                 style={{ backgroundColor: rgbToHex(userColor) }}
+                role="img"
+                aria-label={`Your color ${rgbToHex(userColor)}`}
               />
               <p className="text-xs text-gray-400 mt-1 font-mono">{rgbToHex(userColor)}</p>
             </div>
@@ -184,7 +302,7 @@ export default function ColorGame() {
               </button>
             ) : (
               <div className="flex flex-col items-center gap-4">
-                <div className="text-center">
+                <div className="text-center" role="status" aria-live="polite">
                   <p className="text-3xl font-bold text-blue-600">{score}/100</p>
                   <p className="text-sm text-gray-500">ΔE = {history[history.length - 1]?.deltaE.toFixed(2)}</p>
                 </div>
@@ -193,7 +311,7 @@ export default function ColorGame() {
                     onClick={nextRound}
                     className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all"
                   >
-                    Next Round ({round}/5)
+                    {round >= TOTAL_ROUNDS ? 'See Results' : `Next Round (${round}/${TOTAL_ROUNDS})`}
                   </button>
                   <button
                     onClick={copyResult}
@@ -210,7 +328,7 @@ export default function ColorGame() {
           {history.length > 0 && (
             <div className="bg-gray-50 rounded-xl p-4">
               <h3 className="font-bold mb-2">History</h3>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {history.map((h) => (
                   <div
                     key={h.round}
@@ -229,16 +347,12 @@ export default function ColorGame() {
           )}
         </>
       )}
-
-      {/* Disclaimer */}
-      <p className="text-center text-xs text-gray-400 mt-8">
-        Not affiliated with toontone.com
-      </p>
     </div>
   );
 }
 
-// Slider Component
+// Slider Component — label is linked via htmlFor/id; native range input
+// supports arrow-key fine adjustment (step 1) out of the box.
 function Slider({
   label, value, min, max, unit, gradient, onChange,
 }: {
@@ -250,16 +364,19 @@ function Slider({
   gradient: string;
   onChange: (value: number) => void;
 }) {
+  const id = useId();
   return (
     <div>
       <div className="flex justify-between mb-1">
-        <label className="text-sm font-medium text-gray-700">{label}</label>
-        <span className="text-sm text-gray-500 font-mono">{value}{unit}</span>
+        <label htmlFor={id} className="text-sm font-medium text-gray-700">{label}</label>
+        <span className="text-sm text-gray-500 font-mono" aria-hidden="true">{value}{unit}</span>
       </div>
       <input
+        id={id}
         type="range"
         min={min}
         max={max}
+        step={1}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full h-3 rounded-lg appearance-none cursor-pointer"

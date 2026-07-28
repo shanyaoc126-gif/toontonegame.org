@@ -44,8 +44,20 @@ export function hsbToRgb(hsb: HSB): RGB {
   };
 }
 
-// RGB to HSB
+// RGB to HSB (rounded, for display)
 export function rgbToHsb(rgb: RGB): HSB {
+  const p = rgbToHsbPrecise(rgb);
+  return {
+    h: Math.round(p.h),
+    s: Math.round(p.s),
+    b: Math.round(p.b),
+  };
+}
+
+// RGB to HSB without rounding. Used to keep HSB as the single internal
+// source of truth: storing the precise value means untouched slider channels
+// do not drift by ±1 through repeated RGB<->mode round-trips.
+export function rgbToHsbPrecise(rgb: RGB): HSB {
   const r = rgb.r / 255;
   const g = rgb.g / 255;
   const b = rgb.b / 255;
@@ -62,9 +74,9 @@ export function rgbToHsb(rgb: RGB): HSB {
   }
 
   return {
-    h: Math.round(h),
-    s: max === 0 ? 0 : Math.round((d / max) * 100),
-    b: Math.round(max * 100),
+    h,
+    s: max === 0 ? 0 : (d / max) * 100,
+    b: max * 100,
   };
 }
 
@@ -142,7 +154,19 @@ export function deltaE2000(rgb1: RGB, rgb2: RGB): number {
   let h2p = Math.atan2(b2, a2p) * (180 / Math.PI);
   if (h2p < 0) h2p += 360;
 
-  let avghp = Math.abs(h1p - h2p) > 180 ? (h1p + h2p + 360) / 2 : (h1p + h2p) / 2;
+  // CIEDE2000 mean hue: when |h1' - h2'| > 180°, the mean must wrap around
+  // 0°/360°. If h1' + h2' < 360° add 360°, otherwise subtract 360°.
+  // Boundary case: h1' = 350°, h2' = 10° -> correct mean is 0° (360° mod 360),
+  // not (350 + 10 + 360) / 2 = 360°; the old single-branch code returned 360°
+  // here, skewing deltaTheta and the R_T rotation term for blue-purple pairs.
+  let avghp: number;
+  if (Math.abs(h1p - h2p) > 180) {
+    avghp = (h1p + h2p < 360)
+      ? (h1p + h2p + 360) / 2
+      : (h1p + h2p - 360) / 2;
+  } else {
+    avghp = (h1p + h2p) / 2;
+  }
   const T = 1 - 0.17 * Math.cos((avghp - 30) * Math.PI / 180)
     + 0.24 * Math.cos(2 * avghp * Math.PI / 180)
     + 0.32 * Math.cos((3 * avghp + 6) * Math.PI / 180)
