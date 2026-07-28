@@ -114,8 +114,8 @@ const FAQ_ITEMS: { section: string; items: { q: string; a: React.ReactNode; aTex
     items: [
       {
         q: 'What data does ToonTone collect?',
-        a: <>No accounts, no tracking cookies, no advertising identifiers. Your streak and highest score are stored only in your browser&apos;s local storage on your device. We use Cloudflare Web Analytics, a cookieless, privacy-respecting traffic counter that doesn&apos;t identify individual visitors. Full details are in the <Link href="/privacy" className="text-accent hover:underline">privacy policy</Link>, and the ground rules are in the <Link href="/terms" className="text-accent hover:underline">terms of service</Link>.</>,
-        aText: 'No accounts, no tracking cookies, no advertising identifiers. Your streak and highest score are stored only in your browser\'s local storage on your device. We use Cloudflare Web Analytics, a cookieless, privacy-respecting traffic counter that doesn\'t identify individual visitors. Full details are in the privacy policy, and the ground rules are in the terms of service.',
+        a: <>No accounts, no tracking cookies, no advertising identifiers. Your streak and highest score are stored only in your browser&apos;s local storage on your device and never leave it. This site runs no analytics scripts at all — there is no traffic counter watching you, not even a cookieless one. Full details are in the <Link href="/privacy" className="text-accent hover:underline">privacy policy</Link>, and the ground rules are in the <Link href="/terms" className="text-accent hover:underline">terms of service</Link>.</>,
+        aText: 'No accounts, no tracking cookies, no advertising identifiers. Your streak and highest score are stored only in your browser\'s local storage on your device and never leave it. This site runs no analytics scripts at all — there is no traffic counter watching you, not even a cookieless one. Full details are in the privacy policy, and the ground rules are in the terms of service.',
       },
       {
         q: 'Where do the target colors come from?',
