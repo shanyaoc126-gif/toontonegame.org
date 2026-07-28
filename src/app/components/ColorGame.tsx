@@ -6,8 +6,12 @@ import {
   generateRandomColor, hsbToRgb, rgbToHsbPrecise, rgbToCmyk, cmykToRgb,
   deltaE2000, calculateScore, rgbToHex,
 } from '../lib/color-utils';
+import { utcDateKey, dailyColors, msUntilUtcMidnight, formatCountdown } from '../lib/daily';
+import { LabStats, loadStats, saveStats, recordGame } from '../lib/stats';
+import { downloadShareCard } from '../lib/share-card';
 
 type GameState = 'idle' | 'playing' | 'submitted' | 'finished';
+type GameMode = 'daily' | 'practice';
 
 const TOTAL_ROUNDS = 5;
 const INITIAL_HSB: HSB = { h: 0, s: 0, b: 50 };
@@ -21,14 +25,14 @@ interface RoundResult {
 }
 
 function scoreColor(score: number): string {
-  return score >= 90 ? 'var(--color-success)' : score >= 70 ? 'var(--color-near)' : 'var(--color-fail)';
+  return score >= 90 ? '#1E8A4C' : score >= 70 ? '#D9A441' : '#DA3A2E';
 }
 
 function ratingFor(average: number): { label: string; blurb: string; color: string } {
-  if (average >= 90) return { label: 'COLOR MASTER', blurb: 'Near-perfect pitch. This proof passes on the first pull.', color: 'var(--color-success)' };
-  if (average >= 75) return { label: 'COLOR PRO', blurb: 'Press-ready. Only subtle shades slip past your eye.', color: 'var(--color-success)' };
-  if (average >= 60) return { label: 'COLOR APPRENTICE', blurb: 'Solid eye. A little more time at the proofing table.', color: 'var(--color-near)' };
-  return { label: 'COLOR NOVICE', blurb: 'Warming up. Try nailing one channel at a time.', color: 'var(--color-fail)' };
+  if (average >= 90) return { label: 'COLOR MASTER', blurb: 'Near-perfect pitch. This proof passes on the first pull.', color: '#1E8A4C' };
+  if (average >= 75) return { label: 'COLOR PRO', blurb: 'Press-ready. Only subtle shades slip past your eye.', color: '#1E8A4C' };
+  if (average >= 60) return { label: 'COLOR APPRENTICE', blurb: 'Solid eye. A little more time at the proofing table.', color: '#D9A441' };
+  return { label: 'COLOR NOVICE', blurb: 'Warming up. Try nailing one channel at a time.', color: '#DA3A2E' };
 }
 
 // Numeric readout that counts up on mount / value change (300ms).
@@ -55,6 +59,8 @@ function CountUp({ value, decimals = 0, duration = 300 }: { value: number; decim
 
 export default function ColorGame() {
   const [mode, setMode] = useState<ColorMode>('hsb');
+  const [gameMode, setGameMode] = useState<GameMode>('daily');
+  const [targets, setTargets] = useState<RGB[]>([]);
   const [targetColor, setTargetColor] = useState<RGB>({ r: 128, g: 128, b: 128 });
   // HSB is the single internal source of truth. RGB/CMYK are one-way derived
   // for display only, which eliminates round-trip rounding drift between modes.
@@ -64,20 +70,54 @@ export default function ColorGame() {
   const [round, setRound] = useState<number>(1);
   const [history, setHistory] = useState<RoundResult[]>([]);
   const [showCopied, setShowCopied] = useState(false);
+  const [countdown, setCountdown] = useState('');
+  const [stats, setStats] = useState<LabStats>({ streak: 0, lastDailyDate: '', bestScore: 0 });
 
   const userColor = hsbToRgb(userHsb);
   const totalScore = history.reduce((sum, h) => sum + h.score, 0);
   const targetHex = rgbToHex(targetColor);
   const userHex = rgbToHex(userColor);
 
-  const startGame = useCallback(() => {
-    setTargetColor(generateRandomColor());
+  const startDaily = useCallback(() => {
+    const set5 = dailyColors(utcDateKey());
+    setTargets(set5);
+    setTargetColor(set5[0]);
     setUserHsb(INITIAL_HSB);
+    setGameMode('daily');
     setGameState('playing');
     setScore(0);
     setRound(1);
     setHistory([]);
   }, []);
+
+  const startPractice = useCallback(() => {
+    setTargets([]);
+    setTargetColor(generateRandomColor());
+    setUserHsb(INITIAL_HSB);
+    setGameMode('practice');
+    setGameState('playing');
+    setScore(0);
+    setRound(1);
+    setHistory([]);
+  }, []);
+
+  // F1/F4: home page opens directly on today's Daily Challenge;
+  // /?mode=practice deep link opens Practice instead.
+  useEffect(() => {
+    setStats(loadStats());
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'practice') startPractice();
+    else startDaily();
+  }, [startDaily, startPractice]);
+
+  // F1: UTC countdown to the next daily reset
+  useEffect(() => {
+    if (gameMode !== 'daily') return;
+    const update = () => setCountdown(formatCountdown(msUntilUtcMidnight()));
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [gameMode]);
 
   const submitGuess = useCallback(() => {
     const deltaE = deltaE2000(targetColor, userColor);
@@ -90,27 +130,67 @@ export default function ColorGame() {
       target: rgbToHex(targetColor),
       guess: rgbToHex(userColor),
     };
-    setHistory(prev => [...prev, entry]);
-    setGameState(round >= TOTAL_ROUNDS ? 'finished' : 'submitted');
-  }, [targetColor, userColor, round]);
+    const newHistory = [...history, entry];
+    setHistory(newHistory);
+    if (round >= TOTAL_ROUNDS) {
+      // F3: streak (daily, once per UTC day) + personal best (any mode)
+      const newTotal = newHistory.reduce((sum, h) => sum + h.score, 0);
+      const now = new Date();
+      const todayKey = utcDateKey(now);
+      const yesterdayKey = utcDateKey(new Date(now.getTime() - 86400000));
+      setStats(prev => {
+        const next = recordGame(prev, {
+          isDaily: gameMode === 'daily',
+          totalScore: newTotal,
+          todayKey,
+          yesterdayKey,
+        });
+        saveStats(next);
+        return next;
+      });
+      setGameState('finished');
+    } else {
+      setGameState('submitted');
+    }
+  }, [targetColor, userColor, round, history, gameMode]);
 
   const nextRound = useCallback(() => {
     if (round >= TOTAL_ROUNDS) return;
-    setTargetColor(generateRandomColor());
+    const next = gameMode === 'daily' ? targets[round] : generateRandomColor();
+    if (next) setTargetColor(next);
     setUserHsb(INITIAL_HSB);
     setRound(prev => prev + 1);
     setGameState('playing');
-  }, [round]);
+  }, [round, gameMode, targets]);
 
+  // F2: copy text — score + rating + link with UTM, no comparative claims
   const copyResult = useCallback(() => {
-    const last = history[history.length - 1];
-    const text = `ToonTone Proofing Lab - Round ${round}/${TOTAL_ROUNDS}\nScore: ${score}/100 | dE: ${last ? last.deltaE.toFixed(2) : '0'}\nTarget: ${rgbToHex(targetColor)} | My print: ${rgbToHex(userColor)}`;
+    const average = history.length > 0 ? totalScore / history.length : 0;
+    const rating = ratingFor(average);
+    const meanDeltaE = history.length > 0
+      ? history.reduce((sum, h) => sum + h.deltaE, 0) / history.length
+      : 0;
+    const modeLine = gameMode === 'daily' ? `Daily ${utcDateKey()}` : 'Practice';
+    const text = `ToonTone Proofing Lab — ${modeLine}\nScore: ${totalScore}/${TOTAL_ROUNDS * 100} · ${rating.label}\nMean ΔE ${meanDeltaE.toFixed(2)} across ${history.length} proofs\nhttps://toontonegame.org/?utm_source=share&utm_medium=copy`;
     navigator.clipboard.writeText(text).catch(() => {
       // Clipboard can be unavailable (permissions, non-secure context); ignore.
     });
     setShowCopied(true);
     setTimeout(() => setShowCopied(false), 2000);
-  }, [round, score, history, targetColor, userColor]);
+  }, [gameMode, history, totalScore]);
+
+  // F2: download the PNG share card
+  const shareCard = useCallback(() => {
+    const average = history.length > 0 ? totalScore / history.length : 0;
+    const rating = ratingFor(average);
+    downloadShareCard({
+      totalScore,
+      ratingLabel: rating.label,
+      ratingColor: rating.color,
+      dateLine: gameMode === 'daily' ? `DAILY PROOF · ${utcDateKey()}` : 'PRACTICE PROOF',
+      rounds: history.map(h => ({ target: h.target, guess: h.guess, score: h.score })),
+    });
+  }, [gameMode, history, totalScore]);
 
   // Channel strips based on mode — every mode edits userHsb only.
   const renderSliders = () => {
@@ -181,7 +261,7 @@ export default function ColorGame() {
         {(['hsb', 'rgb', 'cmyk'] as ColorMode[]).map((m) => (
           <button
             key={m}
-            onClick={() => { setMode(m); if (gameState === 'idle') startGame(); }}
+            onClick={() => setMode(m)}
             aria-pressed={mode === m}
             className={`px-4 py-1.5 rounded-full font-mono text-[12px] uppercase tracking-wide transition-colors ${
               mode === m
@@ -196,7 +276,24 @@ export default function ColorGame() {
     </header>
   );
 
-  // ——— 结算页：质检报告单 ———
+  // Daily / Practice mode line
+  const modeLine = (
+    <div className="flex flex-wrap items-baseline justify-between gap-2 mt-4">
+      <p className="font-mono tabular-nums text-[12px] uppercase tracking-wide text-secondary">
+        {gameMode === 'daily'
+          ? <>Daily Challenge · {utcDateKey()} · Resets in <span className="text-ink">{countdown}</span></>
+          : 'Practice · Unlimited random proofs'}
+      </p>
+      <button
+        onClick={gameMode === 'daily' ? startPractice : startDaily}
+        className="font-mono text-[12px] uppercase tracking-wide text-accent hover:underline"
+      >
+        {gameMode === 'daily' ? 'Switch to Practice →' : 'Switch to Daily →'}
+      </button>
+    </div>
+  );
+
+  // ——— 结算页：质检报告单 + F2 分享 + F3 统计 ———
   if (gameState === 'finished') {
     const average = history.length > 0 ? totalScore / history.length : 0;
     const meanDeltaE = history.length > 0
@@ -206,9 +303,10 @@ export default function ColorGame() {
     return (
       <div className="max-w-5xl mx-auto px-4 py-6">
         {header}
+        {modeLine}
 
         <div
-          className="mt-8 bg-surface border border-hairline rounded-[8px] p-6 md:p-8"
+          className="mt-6 bg-surface border border-hairline rounded-[8px] p-6 md:p-8"
           role="status"
           aria-live="polite"
         >
@@ -222,6 +320,13 @@ export default function ColorGame() {
               </p>
               <p className="font-mono tabular-nums text-[13px] text-secondary mt-2">
                 AVG {average.toFixed(1)} · MEAN ΔE {meanDeltaE.toFixed(2)}
+              </p>
+              {/* F3: streak & personal best (streak daily-only) */}
+              <p className="font-mono tabular-nums text-[12px] uppercase tracking-wide text-secondary mt-3">
+                {gameMode === 'daily' && (
+                  <>Streak <span className="text-ink">{stats.streak} {stats.streak === 1 ? 'day' : 'days'}</span> · </>
+                )}
+                Best <span className="text-ink">{stats.bestScore}</span>
               </p>
             </div>
             <div
@@ -283,132 +388,137 @@ export default function ColorGame() {
             QC result · {rating.label} · AVG {average.toFixed(1)}/100 · MEAN ΔE {meanDeltaE.toFixed(2)}
           </p>
 
-          <button
-            onClick={startGame}
-            className="mt-6 px-8 py-3 bg-ink text-surface font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:opacity-90 transition-opacity"
-          >
-            Run new proof
-          </button>
+          {/* F2: share actions */}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button
+              onClick={shareCard}
+              className="px-6 py-2.5 bg-ink text-surface font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:opacity-90 transition-opacity"
+            >
+              Download Card
+            </button>
+            <button
+              onClick={copyResult}
+              className="px-6 py-2.5 bg-surface border border-hairline text-ink font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:border-ink transition-colors"
+            >
+              {showCopied ? '✓ Copied' : 'Copy Result'}
+            </button>
+            <button
+              onClick={gameMode === 'daily' ? startPractice : startDaily}
+              className="px-6 py-2.5 bg-surface border border-hairline text-ink font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:border-ink transition-colors"
+            >
+              {gameMode === 'daily' ? 'Practice More' : 'Run Daily Proof'}
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ——— 游玩 / 待开始 ———
+  // ——— 游玩（首页即 Daily 直接开局；idle 仅 SSR 首帧） ———
+  if (gameState === 'idle') {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        {header}
+        <div className="py-16" aria-hidden="true" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
       {header}
+      {modeLine}
 
-      {gameState === 'idle' ? (
-        <div className="py-16 text-center">
-          <p className="font-mono text-[12px] uppercase tracking-wide text-secondary">
-            Match the target color as closely as possible · scored by ΔE
+      <div className="grid gap-x-8 gap-y-6 md:grid-cols-12 mt-4">
+        {/* 左 5 列：TARGET + YOUR PRINT 打样卡 */}
+        <div className="md:col-span-5">
+          <div className="proof-frame">
+            <div
+              className="relative h-44 md:h-[260px] rounded-[8px]"
+              style={{ backgroundColor: targetHex }}
+              role="img"
+              aria-label={`Target color ${targetHex}`}
+            >
+              <span key={`dev-${round}-${targetHex}`} className="develop-overlay" />
+            </div>
+          </div>
+          <p className="font-mono text-[12px] uppercase tracking-wide text-secondary px-3">
+            Target / Ref <span className="text-ink">{targetHex}</span>
           </p>
-          <button
-            onClick={startGame}
-            className="mt-6 px-10 py-4 bg-ink text-surface font-bold uppercase tracking-wide text-[15px] rounded-[4px] hover:opacity-90 transition-opacity"
-          >
-            Start proofing
-          </button>
-        </div>
-      ) : (
-        <div className="grid gap-x-8 gap-y-6 md:grid-cols-12 mt-6">
-          {/* 左 5 列：TARGET + YOUR PRINT 打样卡 */}
-          <div className="md:col-span-5">
-            <div className="proof-frame">
-              <div
-                className="relative h-44 md:h-[260px] rounded-[8px]"
-                style={{ backgroundColor: targetHex }}
-                role="img"
-                aria-label={`Target color ${targetHex}`}
-              >
-                <span key={`dev-${round}-${targetHex}`} className="develop-overlay" />
-              </div>
-            </div>
-            <p className="font-mono text-[12px] uppercase tracking-wide text-secondary px-3">
-              Target / Ref <span className="text-ink">{targetHex}</span>
-            </p>
 
-            <div className="proof-frame mt-4">
-              <div
-                className={`proof-card relative h-44 md:h-[260px] rounded-[8px] ${gameState === 'submitted' ? 'proof-overlap' : ''}`}
-                style={{ backgroundColor: userHex }}
-                role="img"
-                aria-label={`Your color ${userHex}`}
-              />
-            </div>
-            <p className="font-mono text-[12px] uppercase tracking-wide text-secondary px-3">
-              Your print / Guess <span className="text-ink">{userHex}</span>
-            </p>
+          <div className="proof-frame mt-4">
+            <div
+              className={`proof-card relative h-44 md:h-[260px] rounded-[8px] ${gameState === 'submitted' ? 'proof-overlap' : ''}`}
+              style={{ backgroundColor: userHex }}
+              role="img"
+              aria-label={`Your color ${userHex}`}
+            />
+          </div>
+          <p className="font-mono text-[12px] uppercase tracking-wide text-secondary px-3">
+            Your print / Guess <span className="text-ink">{userHex}</span>
+          </p>
+        </div>
+
+        {/* 右 7 列：进度细线 + 通道条 + 操作 */}
+        <div className="md:col-span-7">
+          <div className="flex justify-between font-mono tabular-nums text-[12px] uppercase tracking-wide text-secondary">
+            <span>Round {String(round).padStart(2, '0')}/{String(TOTAL_ROUNDS).padStart(2, '0')}</span>
+            <span>Total {totalScore} / {TOTAL_ROUNDS * 100}</span>
+          </div>
+          <div className="h-[2px] bg-hairline mt-2" aria-hidden="true">
+            <div
+              className="h-full bg-accent transition-[width] duration-300"
+              style={{ width: `${(history.length / TOTAL_ROUNDS) * 100}%` }}
+            />
           </div>
 
-          {/* 右 7 列：进度细线 + 通道条 + 操作 */}
-          <div className="md:col-span-7">
-            <div className="flex justify-between font-mono tabular-nums text-[12px] uppercase tracking-wide text-secondary">
-              <span>Round {String(round).padStart(2, '0')}/{String(TOTAL_ROUNDS).padStart(2, '0')}</span>
-              <span>Total {totalScore} / {TOTAL_ROUNDS * 100}</span>
-            </div>
-            <div className="h-[2px] bg-hairline mt-2" aria-hidden="true">
-              <div
-                className="h-full bg-accent transition-[width] duration-300"
-                style={{ width: `${(history.length / TOTAL_ROUNDS) * 100}%` }}
-              />
-            </div>
+          <div className="mt-6 bg-surface border border-hairline rounded-[8px] p-5 space-y-5">
+            {renderSliders()}
+          </div>
 
-            <div className="mt-6 bg-surface border border-hairline rounded-[8px] p-5 space-y-5">
-              {renderSliders()}
+          {gameState === 'playing' ? (
+            <div className="mt-6 max-md:sticky max-md:bottom-0 max-md:bg-canvas max-md:py-3 max-md:border-t max-md:border-hairline">
+              <button
+                onClick={submitGuess}
+                className="w-full md:w-auto px-8 py-3 bg-ink text-surface font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:opacity-90 transition-opacity"
+              >
+                Submit proof
+              </button>
             </div>
-
-            {gameState === 'playing' ? (
-              <div className="mt-6 max-md:sticky max-md:bottom-0 max-md:bg-canvas max-md:py-3 max-md:border-t max-md:border-hairline">
+          ) : (
+            <div className="mt-6 border-t border-hairline pt-5" role="status" aria-live="polite">
+              <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
+                <p className="font-mono tabular-nums text-[48px] leading-none text-ink">
+                  <CountUp value={score} />
+                  <span className="text-[20px] text-secondary">/100</span>
+                </p>
+                <p className="font-mono tabular-nums text-[13px] text-secondary pb-1">
+                  ΔE <CountUp value={history[history.length - 1]?.deltaE ?? 0} decimals={2} />
+                </p>
+              </div>
+              <div className="mt-4 flex gap-3">
                 <button
-                  onClick={submitGuess}
-                  className="w-full md:w-auto px-8 py-3 bg-ink text-surface font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:opacity-90 transition-opacity"
+                  onClick={nextRound}
+                  className="px-6 py-2.5 bg-ink text-surface font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:opacity-90 transition-opacity"
                 >
-                  Submit proof
+                  {round >= TOTAL_ROUNDS ? 'See results' : `Next round ${round}/${TOTAL_ROUNDS}`}
                 </button>
               </div>
-            ) : (
-              <div className="mt-6 border-t border-hairline pt-5" role="status" aria-live="polite">
-                <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
-                  <p className="font-mono tabular-nums text-[48px] leading-none text-ink">
-                    <CountUp value={score} />
-                    <span className="text-[20px] text-secondary">/100</span>
-                  </p>
-                  <p className="font-mono tabular-nums text-[13px] text-secondary pb-1">
-                    ΔE <CountUp value={history[history.length - 1]?.deltaE ?? 0} decimals={2} />
-                  </p>
-                </div>
-                <div className="mt-4 flex gap-3">
-                  <button
-                    onClick={nextRound}
-                    className="px-6 py-2.5 bg-ink text-surface font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:opacity-90 transition-opacity"
-                  >
-                    {round >= TOTAL_ROUNDS ? 'See results' : `Next round ${round}/${TOTAL_ROUNDS}`}
-                  </button>
-                  <button
-                    onClick={copyResult}
-                    className="px-6 py-2.5 bg-surface border border-hairline text-ink font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:border-ink transition-colors"
-                  >
-                    {showCopied ? '✓ Copied' : 'Copy result'}
-                  </button>
-                </div>
-              </div>
-            )}
+            </div>
+          )}
 
-            {history.length > 0 && (
-              <p className="mt-6 font-mono tabular-nums text-[12px] uppercase tracking-wide text-secondary">
-                QC log&nbsp;&nbsp;
-                {history.map((h) => (
-                  <span key={h.round} className="mr-3">
-                    R{h.round} <span style={{ color: scoreColor(h.score) }}>{h.score}</span>
-                  </span>
-                ))}
-              </p>
-            )}
-          </div>
+          {history.length > 0 && (
+            <p className="mt-6 font-mono tabular-nums text-[12px] uppercase tracking-wide text-secondary">
+              QC log&nbsp;&nbsp;
+              {history.map((h) => (
+                <span key={h.round} className="mr-3">
+                  R{h.round} <span style={{ color: scoreColor(h.score) }}>{h.score}</span>
+                </span>
+              ))}
+            </p>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

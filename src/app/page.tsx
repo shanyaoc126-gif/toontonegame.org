@@ -1,14 +1,16 @@
-import Link from 'next/link';
 import ColorGame from './components/ColorGame';
+import { SiteFooter, JsonLd } from './components/ContentPage';
 
 const jsonLd = {
   '@context': 'https://schema.org',
   '@graph': [
     {
-      '@type': 'WebApplication',
-      name: 'ToonTone Challenge',
+      '@type': 'VideoGame',
+      name: 'ToonTone Proofing Lab',
+      alternateName: 'ToonTone Challenge',
       url: 'https://toontonegame.org/',
       applicationCategory: 'GameApplication',
+      gamePlatform: 'Web Browser',
       operatingSystem: 'Any (web browser)',
       browserRequirements: 'Requires JavaScript',
       offers: {
@@ -17,21 +19,21 @@ const jsonLd = {
         priceCurrency: 'USD',
       },
       description:
-        'Free color matching game: match the target color with HSB, RGB, or CMYK sliders. Scored by CIEDE2000 color difference.',
+        'Free color matching game: match the target color with HSB, RGB, or CMYK sliders. Scored by CIEDE2000 color difference — the closer your eye, the higher your score.',
     },
     {
       '@type': 'HowTo',
-      name: 'How to play ToonTone Challenge',
+      name: 'How to play ToonTone Proofing Lab',
       step: [
         {
           '@type': 'HowToStep',
-          name: 'Start the game',
-          text: 'Press Start Game to get a random target color. Each game has 5 rounds.',
+          name: 'Open the lab',
+          text: 'The home page starts you directly on today\'s Daily Challenge — the same five target colors for every player, seeded from the UTC date. Each game has 5 rounds.',
         },
         {
           '@type': 'HowToStep',
           name: 'Pick a color mode',
-          text: 'Choose HSB, RGB, or CMYK sliders — whichever color model you think in.',
+          text: 'Choose HSB, RGB, or CMYK sliders — whichever color model you think in. Practice mode offers unlimited random proofs.',
         },
         {
           '@type': 'HowToStep',
@@ -46,7 +48,7 @@ const jsonLd = {
         {
           '@type': 'HowToStep',
           name: 'Finish all 5 rounds',
-          text: 'After 5 rounds you get a total score, an average, and a rating from Color Novice to Color Master.',
+          text: 'After 5 rounds you get a total score, an average, and a rating from Color Novice to Color Master, plus a shareable report card.',
         },
       ],
     },
@@ -56,16 +58,9 @@ const jsonLd = {
 export default function Home() {
   return (
     <main className="min-h-screen bg-canvas py-8">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
       <ColorGame />
-      <footer className="max-w-5xl mx-auto px-4 mt-8 pt-4 border-t border-hairline font-mono text-[12px] uppercase tracking-wide text-secondary flex flex-wrap gap-x-6 gap-y-2 justify-center">
-        <Link href="/privacy" className="text-accent hover:underline">Privacy Policy</Link>
-        <Link href="/terms" className="text-accent hover:underline">Terms of Service</Link>
-        <span>Not affiliated with toontone.com</span>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

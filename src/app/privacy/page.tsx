@@ -18,14 +18,22 @@ export default function PrivacyPage() {
           <p>
             ToonTone Challenge is a fully client-side game. There is no sign-up, no login,
             and no account system. We do not collect, store, or transmit any personal
-            information. Your game state (rounds and scores) lives only in your browser
-            memory and disappears when you close or refresh the page.
+            information. Your in-progress game state (rounds and scores) lives only in your
+            browser memory and disappears when you close or refresh the page; only your
+            streak and best score persist locally (see Local storage below).
           </p>
 
           <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink pt-2">No cookies, no tracking</h2>
           <p>
             This site does not set cookies, does not use analytics or advertising trackers,
             and does not fingerprint your device.
+          </p>
+
+          <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink pt-2">Local storage</h2>
+          <p>
+            Your Daily Challenge streak and personal best score are stored only in your
+            browser&apos;s local storage, on your own device. This data is never uploaded,
+            never synced, and never leaves your browser — clearing your browser data resets it.
           </p>
 
           <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink pt-2">Third-party services</h2>
