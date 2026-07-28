@@ -55,15 +55,15 @@ const jsonLd = {
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gray-50 py-8">
+    <main className="min-h-screen bg-canvas py-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <ColorGame />
-      <footer className="max-w-2xl mx-auto p-4 mt-8 text-center text-xs text-gray-400 space-x-4">
-        <Link href="/privacy" className="hover:text-gray-600 underline">Privacy Policy</Link>
-        <Link href="/terms" className="hover:text-gray-600 underline">Terms of Service</Link>
+      <footer className="max-w-5xl mx-auto px-4 mt-8 pt-4 border-t border-hairline font-mono text-[12px] uppercase tracking-wide text-secondary flex flex-wrap gap-x-6 gap-y-2 justify-center">
+        <Link href="/privacy" className="text-accent hover:underline">Privacy Policy</Link>
+        <Link href="/terms" className="text-accent hover:underline">Terms of Service</Link>
         <span>Not affiliated with toontone.com</span>
       </footer>
     </main>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useId } from 'react';
+import { useState, useCallback, useEffect, useId } from 'react';
 import {
   RGB, HSB, ColorMode,
   generateRandomColor, hsbToRgb, rgbToHsbPrecise, rgbToCmyk, cmykToRgb,
@@ -20,11 +20,37 @@ interface RoundResult {
   guess: string;
 }
 
-function ratingFor(average: number): { label: string; blurb: string } {
-  if (average >= 90) return { label: '🏆 Color Master', blurb: 'Near-perfect pitch. Your eyes are basically a spectrophotometer.' };
-  if (average >= 75) return { label: '🥇 Color Pro', blurb: 'Great color perception — only subtle shades slip past you.' };
-  if (average >= 60) return { label: '🎨 Color Apprentice', blurb: 'Solid eye! A bit more practice with saturation and brightness.' };
-  return { label: '🌱 Color Novice', blurb: 'Warming up! Try focusing on one channel at a time.' };
+function scoreColor(score: number): string {
+  return score >= 90 ? 'var(--color-success)' : score >= 70 ? 'var(--color-near)' : 'var(--color-fail)';
+}
+
+function ratingFor(average: number): { label: string; blurb: string; color: string } {
+  if (average >= 90) return { label: 'COLOR MASTER', blurb: 'Near-perfect pitch. This proof passes on the first pull.', color: 'var(--color-success)' };
+  if (average >= 75) return { label: 'COLOR PRO', blurb: 'Press-ready. Only subtle shades slip past your eye.', color: 'var(--color-success)' };
+  if (average >= 60) return { label: 'COLOR APPRENTICE', blurb: 'Solid eye. A little more time at the proofing table.', color: 'var(--color-near)' };
+  return { label: 'COLOR NOVICE', blurb: 'Warming up. Try nailing one channel at a time.', color: 'var(--color-fail)' };
+}
+
+// Numeric readout that counts up on mount / value change (300ms).
+// Falls back to the final value instantly under prefers-reduced-motion.
+function CountUp({ value, decimals = 0, duration = 300 }: { value: number; decimals?: number; duration?: number }) {
+  const [display, setDisplay] = useState(value);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDisplay(value);
+      return;
+    }
+    const start = performance.now();
+    let raf = 0;
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - start) / duration);
+      setDisplay(value * p);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, duration]);
+  return <>{display.toFixed(decimals)}</>;
 }
 
 export default function ColorGame() {
@@ -41,6 +67,8 @@ export default function ColorGame() {
 
   const userColor = hsbToRgb(userHsb);
   const totalScore = history.reduce((sum, h) => sum + h.score, 0);
+  const targetHex = rgbToHex(targetColor);
+  const userHex = rgbToHex(userColor);
 
   const startGame = useCallback(() => {
     setTargetColor(generateRandomColor());
@@ -76,7 +104,7 @@ export default function ColorGame() {
 
   const copyResult = useCallback(() => {
     const last = history[history.length - 1];
-    const text = `🎨 ToonTone Challenge - Round ${round}/${TOTAL_ROUNDS}\nScore: ${score}/100 | ΔE: ${last ? last.deltaE.toFixed(2) : '0'}\nTarget: ${rgbToHex(targetColor)} | My guess: ${rgbToHex(userColor)}`;
+    const text = `ToonTone Proofing Lab - Round ${round}/${TOTAL_ROUNDS}\nScore: ${score}/100 | dE: ${last ? last.deltaE.toFixed(2) : '0'}\nTarget: ${rgbToHex(targetColor)} | My print: ${rgbToHex(userColor)}`;
     navigator.clipboard.writeText(text).catch(() => {
       // Clipboard can be unavailable (permissions, non-secure context); ignore.
     });
@@ -84,12 +112,12 @@ export default function ColorGame() {
     setTimeout(() => setShowCopied(false), 2000);
   }, [round, score, history, targetColor, userColor]);
 
-  // Slider components based on mode — every mode edits userHsb only.
+  // Channel strips based on mode — every mode edits userHsb only.
   const renderSliders = () => {
     if (mode === 'hsb') {
       const hsb = userHsb;
       return (
-        <div className="space-y-4">
+        <>
           <Slider label="Hue" value={Math.round(hsb.h)} min={0} max={360} unit="°"
             gradient="linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)"
             onChange={(v) => setUserHsb({ ...hsb, h: v })} />
@@ -99,14 +127,14 @@ export default function ColorGame() {
           <Slider label="Brightness" value={Math.round(hsb.b)} min={0} max={100} unit="%"
             gradient={`linear-gradient(to right, black, ${rgbToHex(hsbToRgb({ ...hsb, b: 100 }))})`}
             onChange={(v) => setUserHsb({ ...hsb, b: v })} />
-        </div>
+        </>
       );
     }
 
     if (mode === 'rgb') {
       const rgb = userColor;
       return (
-        <div className="space-y-4">
+        <>
           <Slider label="Red" value={rgb.r} min={0} max={255} unit=""
             gradient="linear-gradient(to right, #000, #f00)"
             onChange={(v) => setUserHsb(rgbToHsbPrecise({ ...rgb, r: v }))} />
@@ -116,14 +144,14 @@ export default function ColorGame() {
           <Slider label="Blue" value={rgb.b} min={0} max={255} unit=""
             gradient="linear-gradient(to right, #000, #00f)"
             onChange={(v) => setUserHsb(rgbToHsbPrecise({ ...rgb, b: v }))} />
-        </div>
+        </>
       );
     }
 
     if (mode === 'cmyk') {
       const cmyk = rgbToCmyk(userColor);
       return (
-        <div className="space-y-4">
+        <>
           <Slider label="Cyan" value={cmyk.c} min={0} max={100} unit="%"
             gradient="linear-gradient(to right, white, #00bcd4)"
             onChange={(v) => setUserHsb(rgbToHsbPrecise(cmykToRgb({ ...cmyk, c: v })))} />
@@ -136,223 +164,257 @@ export default function ColorGame() {
           <Slider label="Key (Black)" value={cmyk.k} min={0} max={100} unit="%"
             gradient="linear-gradient(to right, white, black)"
             onChange={(v) => setUserHsb(rgbToHsbPrecise(cmykToRgb({ ...cmyk, k: v })))} />
-        </div>
+        </>
       );
     }
   };
 
-  // Final settlement screen after round 5
+  const header = (
+    <header className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-hairline">
+      <div>
+        <h1 className="text-[20px] font-bold uppercase tracking-tight text-ink">ToonTone Proofing Lab</h1>
+        <p className="font-mono text-[12px] uppercase tracking-wide text-secondary mt-1">
+          Color QC · CIEDE2000 matching · 5 rounds
+        </p>
+      </div>
+      <div className="flex gap-2" role="group" aria-label="Color mode">
+        {(['hsb', 'rgb', 'cmyk'] as ColorMode[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => { setMode(m); if (gameState === 'idle') startGame(); }}
+            aria-pressed={mode === m}
+            className={`px-4 py-1.5 rounded-full font-mono text-[12px] uppercase tracking-wide transition-colors ${
+              mode === m
+                ? 'bg-ink text-surface'
+                : 'bg-surface border border-hairline text-secondary hover:text-ink'
+            }`}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+    </header>
+  );
+
+  // ——— 结算页：质检报告单 ———
   if (gameState === 'finished') {
     const average = history.length > 0 ? totalScore / history.length : 0;
+    const meanDeltaE = history.length > 0
+      ? history.reduce((sum, h) => sum + h.deltaE, 0) / history.length
+      : 0;
     const rating = ratingFor(average);
     return (
-      <div className="max-w-2xl mx-auto p-4">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">🎨 ToonTone Challenge</h1>
-          <p className="text-gray-600">Match the target color as closely as possible!</p>
-        </div>
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        {header}
 
         <div
-          className="bg-white rounded-xl p-6 shadow-md text-center"
+          className="mt-8 bg-surface border border-hairline rounded-[8px] p-6 md:p-8"
           role="status"
           aria-live="polite"
         >
-          <h2 className="text-2xl font-bold mb-1">Game Over</h2>
-          <p className="text-xl font-bold text-blue-600 mb-1">{rating.label}</p>
-          <p className="text-sm text-gray-500 mb-6">{rating.blurb}</p>
-
-          <div className="flex justify-center gap-8 mb-6">
+          <div className="flex flex-wrap items-start justify-between gap-8 border-b border-hairline pb-6">
             <div>
-              <p className="text-3xl font-bold">{totalScore}</p>
-              <p className="text-xs text-gray-500">Total / {TOTAL_ROUNDS * 100}</p>
+              <p className="font-mono text-[12px] uppercase tracking-wide text-secondary">Quality control report</p>
+              <h2 className="text-[20px] font-bold uppercase tracking-tight text-ink mt-1">Proofing complete</h2>
+              <p className="font-mono tabular-nums text-[48px] leading-none text-ink mt-4">
+                <CountUp value={totalScore} duration={500} />
+                <span className="text-[20px] text-secondary"> /{TOTAL_ROUNDS * 100}</span>
+              </p>
+              <p className="font-mono tabular-nums text-[13px] text-secondary mt-2">
+                AVG {average.toFixed(1)} · MEAN ΔE {meanDeltaE.toFixed(2)}
+              </p>
             </div>
-            <div>
-              <p className="text-3xl font-bold">{average.toFixed(1)}</p>
-              <p className="text-xs text-gray-500">Avg per round</p>
+            <div
+              className="qc-stamp border-2 rounded-[4px] px-5 py-3 font-bold uppercase tracking-widest text-[20px]"
+              style={{ borderColor: rating.color, color: rating.color }}
+            >
+              {rating.label}
             </div>
           </div>
 
-          <div className="text-left mb-6">
-            <h3 className="font-bold mb-2 text-sm text-gray-700">Round breakdown</h3>
-            <ul className="space-y-2">
-              {history.map((h) => (
-                <li
+          <p className="font-mono text-[13px] text-secondary mt-4">{rating.blurb}</p>
+
+          <table className="w-full mt-6 font-mono tabular-nums text-[13px] text-ink">
+            <thead>
+              <tr className="border-b border-hairline text-left text-[12px] uppercase tracking-wide text-secondary">
+                <th className="py-2 font-medium">Rnd</th>
+                <th className="py-2 font-medium">Target</th>
+                <th className="py-2 font-medium">Print</th>
+                <th className="py-2 font-medium">ΔE</th>
+                <th className="py-2 font-medium text-right">Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((h, i) => (
+                <tr
                   key={h.round}
-                  className="flex items-center gap-3 text-sm border border-gray-100 rounded-lg px-3 py-2"
+                  className="qc-row border-b border-hairline"
+                  style={{ animationDelay: `${i * 80}ms` }}
                 >
-                  <span className="font-medium w-14">R{h.round}</span>
-                  <span
-                    className="w-6 h-6 rounded border border-gray-200 inline-block"
-                    style={{ backgroundColor: h.target }}
-                    role="img"
-                    aria-label={`Target color ${h.target}`}
-                  />
-                  <span className="text-gray-400">→</span>
-                  <span
-                    className="w-6 h-6 rounded border border-gray-200 inline-block"
-                    style={{ backgroundColor: h.guess }}
-                    role="img"
-                    aria-label={`Your color ${h.guess}`}
-                  />
-                  <span className="font-mono text-xs text-gray-500">ΔE {h.deltaE.toFixed(2)}</span>
-                  <span
-                    className={`ml-auto px-2 py-0.5 rounded text-xs font-medium ${
-                      h.score >= 90 ? 'bg-green-100 text-green-700' :
-                      h.score >= 70 ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-red-100 text-red-700'
-                    }`}
-                  >
+                  <td className="py-2.5">0{h.round}</td>
+                  <td className="py-2.5">
+                    <span
+                      className="inline-block w-4 h-4 rounded-[2px] border border-hairline align-[-3px] mr-2"
+                      style={{ backgroundColor: h.target }}
+                      role="img"
+                      aria-label={`Target color ${h.target}`}
+                    />
+                    {h.target}
+                  </td>
+                  <td className="py-2.5">
+                    <span
+                      className="inline-block w-4 h-4 rounded-[2px] border border-hairline align-[-3px] mr-2"
+                      style={{ backgroundColor: h.guess }}
+                      role="img"
+                      aria-label={`Your color ${h.guess}`}
+                    />
+                    {h.guess}
+                  </td>
+                  <td className="py-2.5">{h.deltaE.toFixed(2)}</td>
+                  <td className="py-2.5 text-right font-bold" style={{ color: scoreColor(h.score) }}>
                     {h.score}
-                  </span>
-                </li>
+                  </td>
+                </tr>
               ))}
-            </ul>
-          </div>
+            </tbody>
+          </table>
+
+          <p className="font-mono text-[12px] uppercase tracking-wide text-secondary mt-6">
+            QC result · {rating.label} · AVG {average.toFixed(1)}/100 · MEAN ΔE {meanDeltaE.toFixed(2)}
+          </p>
 
           <button
             onClick={startGame}
-            className="px-8 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg"
+            className="mt-6 px-8 py-3 bg-ink text-surface font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:opacity-90 transition-opacity"
           >
-            Play Again
+            Run new proof
           </button>
         </div>
       </div>
     );
   }
 
+  // ——— 游玩 / 待开始 ———
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold mb-2">🎨 ToonTone Challenge</h1>
-        <p className="text-gray-600">Match the target color as closely as possible!</p>
-      </div>
+    <div className="max-w-5xl mx-auto px-4 py-6">
+      {header}
 
-      {/* Mode Selector */}
-      <div className="flex justify-center gap-2 mb-6">
-        {(['hsb', 'rgb', 'cmyk'] as ColorMode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => { setMode(m); if (gameState === 'idle') startGame(); }}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
-              mode === m
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {m.toUpperCase()}
-          </button>
-        ))}
-      </div>
-
-      {/* Game Area */}
       {gameState === 'idle' ? (
-        <div className="text-center py-12">
+        <div className="py-16 text-center">
+          <p className="font-mono text-[12px] uppercase tracking-wide text-secondary">
+            Match the target color as closely as possible · scored by ΔE
+          </p>
           <button
             onClick={startGame}
-            className="px-8 py-4 bg-blue-600 text-white text-xl font-bold rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl"
+            className="mt-6 px-10 py-4 bg-ink text-surface font-bold uppercase tracking-wide text-[15px] rounded-[4px] hover:opacity-90 transition-opacity"
           >
-            Start Game
+            Start proofing
           </button>
         </div>
       ) : (
-        <>
-          {/* Round indicator */}
-          <p className="text-center text-sm font-medium text-gray-600 mb-4">
-            Round {round}/{TOTAL_ROUNDS}
-          </p>
-
-          {/* Color Comparison */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="text-center">
-              <p className="text-sm text-gray-500 mb-2">Target Color</p>
+        <div className="grid gap-x-8 gap-y-6 md:grid-cols-12 mt-6">
+          {/* 左 5 列：TARGET + YOUR PRINT 打样卡 */}
+          <div className="md:col-span-5">
+            <div className="proof-frame">
               <div
-                className="w-full h-32 rounded-xl shadow-inner border-2 border-gray-200"
-                style={{ backgroundColor: rgbToHex(targetColor) }}
+                className="relative h-44 md:h-[260px] rounded-[8px]"
+                style={{ backgroundColor: targetHex }}
                 role="img"
-                aria-label={`Target color ${rgbToHex(targetColor)}`}
-              />
-              <p className="text-xs text-gray-400 mt-1 font-mono">{rgbToHex(targetColor)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-sm text-gray-500 mb-2">Your Color</p>
-              <div
-                className="w-full h-32 rounded-xl shadow-inner border-2 border-gray-200"
-                style={{ backgroundColor: rgbToHex(userColor) }}
-                role="img"
-                aria-label={`Your color ${rgbToHex(userColor)}`}
-              />
-              <p className="text-xs text-gray-400 mt-1 font-mono">{rgbToHex(userColor)}</p>
-            </div>
-          </div>
-
-          {/* Sliders */}
-          <div className="bg-white rounded-xl p-6 shadow-md mb-6">
-            {renderSliders()}
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-center gap-4 mb-6">
-            {gameState === 'playing' ? (
-              <button
-                onClick={submitGuess}
-                className="px-8 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-all shadow-lg"
+                aria-label={`Target color ${targetHex}`}
               >
-                Submit Guess
-              </button>
+                <span key={`dev-${round}-${targetHex}`} className="develop-overlay" />
+              </div>
+            </div>
+            <p className="font-mono text-[12px] uppercase tracking-wide text-secondary px-3">
+              Target / Ref <span className="text-ink">{targetHex}</span>
+            </p>
+
+            <div className="proof-frame mt-4">
+              <div
+                className={`proof-card relative h-44 md:h-[260px] rounded-[8px] ${gameState === 'submitted' ? 'proof-overlap' : ''}`}
+                style={{ backgroundColor: userHex }}
+                role="img"
+                aria-label={`Your color ${userHex}`}
+              />
+            </div>
+            <p className="font-mono text-[12px] uppercase tracking-wide text-secondary px-3">
+              Your print / Guess <span className="text-ink">{userHex}</span>
+            </p>
+          </div>
+
+          {/* 右 7 列：进度细线 + 通道条 + 操作 */}
+          <div className="md:col-span-7">
+            <div className="flex justify-between font-mono tabular-nums text-[12px] uppercase tracking-wide text-secondary">
+              <span>Round {String(round).padStart(2, '0')}/{String(TOTAL_ROUNDS).padStart(2, '0')}</span>
+              <span>Total {totalScore} / {TOTAL_ROUNDS * 100}</span>
+            </div>
+            <div className="h-[2px] bg-hairline mt-2" aria-hidden="true">
+              <div
+                className="h-full bg-accent transition-[width] duration-300"
+                style={{ width: `${(history.length / TOTAL_ROUNDS) * 100}%` }}
+              />
+            </div>
+
+            <div className="mt-6 bg-surface border border-hairline rounded-[8px] p-5 space-y-5">
+              {renderSliders()}
+            </div>
+
+            {gameState === 'playing' ? (
+              <div className="mt-6 max-md:sticky max-md:bottom-0 max-md:bg-canvas max-md:py-3 max-md:border-t max-md:border-hairline">
+                <button
+                  onClick={submitGuess}
+                  className="w-full md:w-auto px-8 py-3 bg-ink text-surface font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:opacity-90 transition-opacity"
+                >
+                  Submit proof
+                </button>
+              </div>
             ) : (
-              <div className="flex flex-col items-center gap-4">
-                <div className="text-center" role="status" aria-live="polite">
-                  <p className="text-3xl font-bold text-blue-600">{score}/100</p>
-                  <p className="text-sm text-gray-500">ΔE = {history[history.length - 1]?.deltaE.toFixed(2)}</p>
+              <div className="mt-6 border-t border-hairline pt-5" role="status" aria-live="polite">
+                <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
+                  <p className="font-mono tabular-nums text-[48px] leading-none text-ink">
+                    <CountUp value={score} />
+                    <span className="text-[20px] text-secondary">/100</span>
+                  </p>
+                  <p className="font-mono tabular-nums text-[13px] text-secondary pb-1">
+                    ΔE <CountUp value={history[history.length - 1]?.deltaE ?? 0} decimals={2} />
+                  </p>
                 </div>
-                <div className="flex gap-3">
+                <div className="mt-4 flex gap-3">
                   <button
                     onClick={nextRound}
-                    className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all"
+                    className="px-6 py-2.5 bg-ink text-surface font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:opacity-90 transition-opacity"
                   >
-                    {round >= TOTAL_ROUNDS ? 'See Results' : `Next Round (${round}/${TOTAL_ROUNDS})`}
+                    {round >= TOTAL_ROUNDS ? 'See results' : `Next round ${round}/${TOTAL_ROUNDS}`}
                   </button>
                   <button
                     onClick={copyResult}
-                    className="px-6 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-all"
+                    className="px-6 py-2.5 bg-surface border border-hairline text-ink font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:border-ink transition-colors"
                   >
-                    {showCopied ? '✓ Copied!' : 'Copy Result'}
+                    {showCopied ? '✓ Copied' : 'Copy result'}
                   </button>
                 </div>
               </div>
             )}
-          </div>
 
-          {/* Score History */}
-          {history.length > 0 && (
-            <div className="bg-gray-50 rounded-xl p-4">
-              <h3 className="font-bold mb-2">History</h3>
-              <div className="flex gap-2 flex-wrap">
+            {history.length > 0 && (
+              <p className="mt-6 font-mono tabular-nums text-[12px] uppercase tracking-wide text-secondary">
+                QC log&nbsp;&nbsp;
                 {history.map((h) => (
-                  <div
-                    key={h.round}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium ${
-                      h.score >= 90 ? 'bg-green-100 text-green-700' :
-                      h.score >= 70 ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-red-100 text-red-700'
-                    }`}
-                  >
-                    R{h.round}: {h.score}
-                  </div>
+                  <span key={h.round} className="mr-3">
+                    R{h.round} <span style={{ color: scoreColor(h.score) }}>{h.score}</span>
+                  </span>
                 ))}
-              </div>
-              <p className="text-sm text-gray-600 mt-2">Total: {totalScore} / {history.length * 100}</p>
-            </div>
-          )}
-        </>
+              </p>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-// Slider Component — label is linked via htmlFor/id; native range input
-// supports arrow-key fine adjustment (step 1) out of the box.
+// Channel-strip slider — mono 通道名 + 18px 渐变轨道 + 3 位定宽读数。
+// label 通过 htmlFor/id 关联；原生 range 支持方向键微调（step 1）。
 function Slider({
   label, value, min, max, unit, gradient, onChange,
 }: {
@@ -367,9 +429,13 @@ function Slider({
   const id = useId();
   return (
     <div>
-      <div className="flex justify-between mb-1">
-        <label htmlFor={id} className="text-sm font-medium text-gray-700">{label}</label>
-        <span className="text-sm text-gray-500 font-mono" aria-hidden="true">{value}{unit}</span>
+      <div className="flex justify-between items-baseline mb-1.5">
+        <label htmlFor={id} className="font-mono text-[12px] uppercase tracking-wide text-secondary">
+          {label}
+        </label>
+        <span className="font-mono tabular-nums text-[13px] text-ink w-14 text-right" aria-hidden="true">
+          {String(value).padStart(3, '0')}{unit}
+        </span>
       </div>
       <input
         id={id}
@@ -379,11 +445,8 @@ function Slider({
         step={1}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-3 rounded-lg appearance-none cursor-pointer"
-        style={{
-          background: gradient,
-          accentColor: '#2563eb',
-        }}
+        className="w-full"
+        style={{ background: gradient }}
       />
     </div>
   );
