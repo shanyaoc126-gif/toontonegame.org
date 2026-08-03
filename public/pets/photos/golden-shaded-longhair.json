@@ -1,0 +1,76 @@
+{
+ "slug": "golden-shaded-longhair",
+ "name": "Golden Shaded Longhair",
+ "nameZh": "长毛金渐层",
+ "size": 640,
+ "rounds": 5,
+ "credit": "TheCatAPI (public pet photo service)",
+ "files": {
+  "orig": "golden-shaded-longhair-orig.jpg",
+  "canvas": "golden-shaded-longhair-canvas.jpg",
+  "masks": [
+   "golden-shaded-longhair-z1.png",
+   "golden-shaded-longhair-z2.png",
+   "golden-shaded-longhair-z3.png",
+   "golden-shaded-longhair-z4.png",
+   "golden-shaded-longhair-z5.png"
+  ]
+ },
+ "zones": [
+  {
+   "id": "z1",
+   "part": "the golden coat",
+   "pixels": 77092,
+   "target": {
+    "h": 24,
+    "s": 44,
+    "b": 61
+   },
+   "completedFill": "#9c7357"
+  },
+  {
+   "id": "z2",
+   "part": "the golden coat",
+   "pixels": 45184,
+   "target": {
+    "h": 30,
+    "s": 55,
+    "b": 13
+   },
+   "completedFill": "#21180f"
+  },
+  {
+   "id": "z3",
+   "part": "the golden coat",
+   "pixels": 110976,
+   "target": {
+    "h": 23,
+    "s": 48,
+    "b": 40
+   },
+   "completedFill": "#654735"
+  },
+  {
+   "id": "z4",
+   "part": "the golden coat",
+   "pixels": 87101,
+   "target": {
+    "h": 29,
+    "s": 27,
+    "b": 54
+   },
+   "completedFill": "#897664"
+  },
+  {
+   "id": "z5",
+   "part": "the mid warm fur",
+   "pixels": 118410,
+   "target": {
+    "h": 27,
+    "s": 20,
+    "b": 83
+   },
+   "completedFill": "#d4bca9"
+  }
+ ]
+}

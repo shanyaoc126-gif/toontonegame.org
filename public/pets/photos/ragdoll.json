@@ -1,0 +1,76 @@
+{
+ "slug": "ragdoll",
+ "name": "Ragdoll",
+ "nameZh": "布偶猫",
+ "size": 640,
+ "rounds": 5,
+ "credit": "TheCatAPI (public pet photo service)",
+ "files": {
+  "orig": "ragdoll-orig.jpg",
+  "canvas": "ragdoll-canvas.jpg",
+  "masks": [
+   "ragdoll-z1.png",
+   "ragdoll-z2.png",
+   "ragdoll-z3.png",
+   "ragdoll-z4.png",
+   "ragdoll-z5.png"
+  ]
+ },
+ "zones": [
+  {
+   "id": "z1",
+   "part": "the pale chest & belly",
+   "pixels": 93528,
+   "target": {
+    "h": 21,
+    "s": 6,
+    "b": 85
+   },
+   "completedFill": "#dad1cc"
+  },
+  {
+   "id": "z2",
+   "part": "the warm rose & ginger marks",
+   "pixels": 106016,
+   "target": {
+    "h": 18,
+    "s": 27,
+    "b": 57
+   },
+   "completedFill": "#92776b"
+  },
+  {
+   "id": "z3",
+   "part": "the soft shadow tones",
+   "pixels": 136554,
+   "target": {
+    "h": 20,
+    "s": 19,
+    "b": 74
+   },
+   "completedFill": "#bda599"
+  },
+  {
+   "id": "z4",
+   "part": "the soft shadow tones",
+   "pixels": 96868,
+   "target": {
+    "h": 19,
+    "s": 11,
+    "b": 75
+   },
+   "completedFill": "#c0b1aa"
+  },
+  {
+   "id": "z5",
+   "part": "the golden coat",
+   "pixels": 59300,
+   "target": {
+    "h": 24,
+    "s": 57,
+    "b": 37
+   },
+   "completedFill": "#5e3e28"
+  }
+ ]
+}

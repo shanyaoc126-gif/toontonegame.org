@@ -1,0 +1,76 @@
+{
+ "slug": "corgi",
+ "name": "Pembroke Welsh Corgi",
+ "nameZh": "柯基",
+ "size": 640,
+ "rounds": 5,
+ "credit": "Dog CEO API (open dog photo service)",
+ "files": {
+  "orig": "corgi-orig.jpg",
+  "canvas": "corgi-canvas.jpg",
+  "masks": [
+   "corgi-z1.png",
+   "corgi-z2.png",
+   "corgi-z3.png",
+   "corgi-z4.png",
+   "corgi-z5.png"
+  ]
+ },
+ "zones": [
+  {
+   "id": "z1",
+   "part": "the soft shadow tones",
+   "pixels": 158939,
+   "target": {
+    "h": 22,
+    "s": 17,
+    "b": 62
+   },
+   "completedFill": "#9f8e84"
+  },
+  {
+   "id": "z2",
+   "part": "the soft shadow tones",
+   "pixels": 58023,
+   "target": {
+    "h": 3,
+    "s": 19,
+    "b": 36
+   },
+   "completedFill": "#5d4c4b"
+  },
+  {
+   "id": "z3",
+   "part": "the soft shadow tones",
+   "pixels": 135206,
+   "target": {
+    "h": 27,
+    "s": 15,
+    "b": 62
+   },
+   "completedFill": "#9e9186"
+  },
+  {
+   "id": "z4",
+   "part": "the pale chest & belly",
+   "pixels": 62086,
+   "target": {
+    "h": 18,
+    "s": 8,
+    "b": 79
+   },
+   "completedFill": "#c9bdb8"
+  },
+  {
+   "id": "z5",
+   "part": "the warm rose & ginger marks",
+   "pixels": 95104,
+   "target": {
+    "h": 16,
+    "s": 34,
+    "b": 48
+   },
+   "completedFill": "#7a5b50"
+  }
+ ]
+}
