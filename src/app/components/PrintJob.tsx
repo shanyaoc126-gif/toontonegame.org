@@ -1,10 +1,19 @@
 'use client';
 
-// PRINT JOB — the third game mode. Calibrate a pet, one ink zone at a time:
-// 5 rounds = the 5 data-zone regions of the pet's line art. Each round the
-// player matches that zone's target HSB with the familiar sliders; on submit
-// the zone is filled with the PLAYER's color (the closer the calibration, the
-// closer the print to the spec). ΔE>8 stamps a coral "misprint" marker.
+// PRINT JOB — photo edition. The owner's brief: "give them the original photo,
+// and one with the color stripped out, then let them re-ink it."
+//
+// Each pet ships as a real 640×640 photo set (public/pets/photos/<slug>…):
+//   - orig.jpg    the full-color reference (the PEEK hint + the reveal)
+//   - canvas.jpg  the grayscale "plate" the player works on
+//   - z1..z5.png  black/white masks, one per photo zone (white = zone)
+//   - <slug>.json manifest: zone targets = the REAL average HSB of each
+//     region in the photo.
+//
+// Each round the player calibrates one zone's target with the familiar
+// sliders. On submit the zone is painted with the PLAYER's color multiplied
+// by the photo's own luminance (lum × ink), so every completed zone keeps
+// the photographic fur texture. ΔE > 8 stamps a coral MISPRINT marker.
 // Scoring reuses deltaE2000 -> score = 100 − ΔE, total out of 500.
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
@@ -30,6 +39,7 @@ const CORAL_TEXT = '#d94a35';
 const TOTAL_ZONES = 5;
 const MISPRINT_THRESHOLD = 8; // ΔE ≤ 8 = clean print, > 8 = misprint stamp
 const INITIAL_HSB: HSB = { h: 0, s: 0, b: 50 };
+const ZONE_MASK_THRESHOLD = 128; // mask gray above this = inside the zone
 
 function scoreColor(score: number): string {
   return score >= 90 ? GRASS_TEXT : score >= 70 ? SUNSHINE_TEXT : CORAL_TEXT;
@@ -42,26 +52,29 @@ function deltaETier(deltaE: number): { fill: string; text: string } {
 }
 
 function ratingBlurb(label: string): string {
-  if (label === 'COLOR MASTER') return 'Near-perfect pitch. This pet walks off the press flawless.';
+  if (label === 'COLOR MASTER') return 'Near-perfect pitch. This photo walks off the press flawless.';
   if (label === 'COLOR PRO') return 'Press-ready. Only subtle shades slipped past your eye.';
   if (label === 'COLOR APPRENTICE') return 'Solid eye. A little more time at the proofing table.';
-  return 'Warming up. Try nailing one channel at a time.';
+  return 'Warming up. Try nailing one channel at a time — and hold PEEK more often.';
 }
 
-// Fetched spec shape (public/pets/<slug>.spec.json)
-interface SpecZone {
-  id: string;
-  part: string;
-  completedFill: string;
-  target: HSB;
-  note: string;
+// ————— Photo manifest (public/pets/photos/<slug>.json) —————
+interface PhotoZone {
+  id: string;               // z1..z5, manifest order = round order
+  part: string;             // English region name from the photo analysis
+  pixels: number;
+  target: HSB;              // real average HSB of the region in the photo
+  completedFill: string;    // hex of that average (for swatches)
 }
-interface PetSpec {
+interface PhotoManifest {
   slug: string;
   name: string;
   nameZh: string;
-  zones: SpecZone[];
-  personality: string;
+  size: number;
+  rounds: number;
+  credit: string;
+  files: { orig: string; canvas: string; masks: string[] };
+  zones: PhotoZone[];
 }
 
 interface ZoneResult {
@@ -77,140 +90,226 @@ interface ZoneResult {
 
 type JobPhase = 'select' | 'playing' | 'submitted' | 'finished';
 
-// ————— SVG injection —————
-// The fetched line art is injected raw (our own static asset), then a DOM
-// pass sets per-zone fills. Shapes explicitly marked stroke="none" (e.g. ink
-// pupils) keep their own fill; open detail strokes stay fill-less.
-function PetSvg({
-  svgText,
-  fills,
-  activeZone,
-  className,
+// ————— Photo asset loading —————
+// Everything is decoded once per job: the grayscale plate becomes an ImageData
+// (the luminance source for lum×ink painting), each mask becomes an alpha
+// array plus a sky-blue edge overlay for the active-zone highlight.
+
+type Drawable = ImageBitmap | HTMLImageElement;
+
+async function loadImage(url: string): Promise<Drawable> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+  const blob = await res.blob();
+  if (typeof createImageBitmap === 'function') {
+    try {
+      return await createImageBitmap(blob);
+    } catch {
+      // fall through to <img> decoding (older Safari)
+    }
+  }
+  const img = new Image();
+  img.src = URL.createObjectURL(blob);
+  await img.decode();
+  return img;
+}
+
+function drawableToImageData(img: Drawable, size: number): ImageData {
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.drawImage(img, 0, 0, size, size);
+  return ctx.getImageData(0, 0, size, size);
+}
+
+// Masks are grayscale PNGs (white = zone, black = outside, no alpha channel),
+// so the gray value itself is the zone membership. We keep it as an alpha
+// array for painting, and build a white-on-transparent canvas for the edge
+// overlay (a dilate-minus-original rim, tinted sky blue).
+function maskToAlpha(maskImg: Drawable, size: number): Uint8Array {
+  const data = drawableToImageData(maskImg, size).data;
+  const alpha = new Uint8Array(size * size);
+  for (let i = 0; i < size * size; i++) alpha[i] = data[i * 4]; // gray in R
+  return alpha;
+}
+
+function buildEdgeCanvas(alpha: Uint8Array, size: number, color: string): HTMLCanvasElement {
+  // White-on-transparent mask canvas
+  const maskC = document.createElement('canvas');
+  maskC.width = size;
+  maskC.height = size;
+  const mctx = maskC.getContext('2d')!;
+  const md = mctx.createImageData(size, size);
+  for (let i = 0; i < size * size; i++) {
+    const a = alpha[i];
+    md.data[i * 4] = 255;
+    md.data[i * 4 + 1] = 255;
+    md.data[i * 4 + 2] = 255;
+    md.data[i * 4 + 3] = a;
+  }
+  mctx.putImageData(md, 0, 0);
+
+  // Rim = union of small shifts, minus the original mask, tinted.
+  const edge = document.createElement('canvas');
+  edge.width = size;
+  edge.height = size;
+  const ctx = edge.getContext('2d')!;
+  const shifts: Array<[number, number]> = [[2, 0], [-2, 0], [0, 2], [0, -2]];
+  for (const [dx, dy] of shifts) ctx.drawImage(maskC, dx, dy);
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.drawImage(maskC, 0, 0);
+  ctx.globalCompositeOperation = 'source-in';
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, size, size);
+  return edge;
+}
+
+interface PhotoAssets {
+  manifest: PhotoManifest;
+  size: number;
+  grayImg: Drawable;            // grayscale plate, drawn as the base
+  grayData: ImageData;          // luminance source for painting
+  maskAlpha: Uint8Array[];      // per-zone membership (parallel to zones)
+  edges: HTMLCanvasElement[];   // per-zone sky-blue rim overlay
+  origUrl: string;
+  canvasUrl: string;
+}
+
+async function loadPhotoAssets(slug: PetSlug): Promise<PhotoAssets> {
+  const base = `/pets/photos/${slug}`;
+  const res = await fetch(`${base}.json`);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for manifest`);
+  const manifest = (await res.json()) as PhotoManifest;
+  if (!Array.isArray(manifest.zones) || manifest.zones.length === 0) {
+    throw new Error('Manifest has no zones');
+  }
+  const size = manifest.size || 640;
+
+  const canvasImg = await loadImage(`${base}-canvas.jpg`);
+  const grayData = drawableToImageData(canvasImg, size);
+  const maskImgs = await Promise.all(manifest.files.masks.map((_, i) => loadImage(`${base}-z${i + 1}.png`)));
+  const maskAlpha = maskImgs.map((m) => maskToAlpha(m, size));
+  const edges = maskAlpha.map((a) => buildEdgeCanvas(a, size, SKY));
+
+  return {
+    manifest,
+    size,
+    grayImg: canvasImg,
+    grayData,
+    maskAlpha,
+    edges,
+    origUrl: `${base}-orig.jpg`,
+    canvasUrl: `${base}-canvas.jpg`,
+  };
+}
+
+// ————— The game board —————
+// Persistent paint layer: an ImageData the same size as the plate, initially
+// transparent. Submitting a zone writes playerColor × luminance into every
+// in-zone pixel; the display canvas = gray plate + paint layer + active rim.
+interface PaintLayer {
+  canvas: HTMLCanvasElement;
+  data: ImageData;
+}
+
+function paintZone(
+  paint: PaintLayer,
+  assets: PhotoAssets,
+  zoneIndex: number,
+  color: RGB,
+): void {
+  const { grayData, maskAlpha, size } = assets;
+  const mask = maskAlpha[zoneIndex];
+  const out = paint.data.data;
+  const gray = grayData.data;
+  for (let i = 0; i < size * size; i++) {
+    if (mask[i] < ZONE_MASK_THRESHOLD) continue;
+    const lum = gray[i * 4] / 255; // plate is grayscale: R channel is enough
+    out[i * 4] = Math.round(color.r * lum);
+    out[i * 4 + 1] = Math.round(color.g * lum);
+    out[i * 4 + 2] = Math.round(color.b * lum);
+    out[i * 4 + 3] = 255;
+  }
+  const ctx = paint.canvas.getContext('2d')!;
+  ctx.putImageData(paint.data, 0, 0);
+}
+
+function PhotoBoard({
+  assets,
+  paintCanvas,
+  paintVersion,
+  activeZoneIndex,
+  peeking,
+  misprints,
+  title,
 }: {
-  svgText: string;
-  fills: Record<string, string>;
-  activeZone?: string;
-  className?: string;
+  assets: PhotoAssets;
+  paintCanvas: HTMLCanvasElement | null;
+  paintVersion: number;
+  activeZoneIndex: number | null;
+  peeking: boolean;
+  misprints: ZoneResult[];
+  title: string;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
-    const groups = el.querySelectorAll<SVGGElement>('[data-zone]');
-    groups.forEach((g) => {
-      const zid = g.getAttribute('data-zone') ?? '';
-      const fill = fills[zid];
-      g.setAttribute('stroke', activeZone === zid ? SKY : '#2c2e2a');
-      g.querySelectorAll('*').forEach((shape) => {
-        const tag = shape.tagName.toLowerCase();
-        if (!['path', 'circle', 'ellipse', 'polygon', 'rect'].includes(tag)) return;
-        if (shape.getAttribute('stroke') === 'none') return; // ink details
-        shape.setAttribute('fill', fill ?? 'none');
-      });
-    });
-  }, [svgText, fills, activeZone]);
-
-  return (
-    <div
-      ref={ref}
-      className={`pet-svg ${className ?? ''}`}
-      dangerouslySetInnerHTML={{ __html: svgText }}
-      aria-hidden={className?.includes('sr-only') ? true : undefined}
-    />
-  );
-}
-
-// Tiny fetch hook for a pet's raw SVG text, with error fallback. State is a
-// single {slug, text, error} record set asynchronously on resolve, so a slug
-// change simply leaves stale state behind until the new fetch lands.
-function usePetSvg(slug: string | null) {
-  const [state, setState] = useState<{ slug: string; text: string | null; error: boolean }>({
-    slug: '',
-    text: null,
-    error: false,
-  });
-
-  useEffect(() => {
-    if (!slug) return;
-    let cancelled = false;
-    fetch(`/pets/${slug}.svg`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.text();
-      })
-      .then((text) => {
-        if (!cancelled) setState({ slug, text, error: false });
-      })
-      .catch(() => {
-        if (!cancelled) setState({ slug, text: null, error: true });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [slug]);
-
-  if (!slug || state.slug !== slug) return { svgText: null, error: false };
-  return { svgText: state.text, error: state.error };
-}
-
-// ————— Selection-screen pet thumbnail —————
-function PetThumb({ slug }: { slug: PetSlug }) {
-  const { svgText, error } = usePetSvg(slug);
-  if (error) {
-    return (
-      <div className="w-full aspect-square flex items-center justify-center bg-sunken rounded-[24px] text-[12px] text-secondary px-2 text-center">
-        Plate missing
-      </div>
-    );
-  }
-  if (!svgText) {
-    return <div className="w-full aspect-square bg-sunken rounded-[24px]" aria-hidden="true" />;
-  }
-  return (
-    <div className="w-full aspect-square bg-surface rounded-[24px] overflow-hidden p-2">
-      <PetSvg svgText={svgText} fills={{}} />
-    </div>
-  );
-}
-
-// ————— Line-art plate with fills + misprint stamps —————
-function PetPlate({
-  svgText,
-  results,
-  activeZone,
-  title,
-}: {
-  svgText: string;
-  results: ZoneResult[];
-  activeZone?: string;
-  title: string;
-}) {
-  const fills: Record<string, string> = {};
-  const misprints: ZoneResult[] = [];
-  results.forEach((r) => {
-    fills[r.zoneId] = r.guessHex;
-    if (r.misprint) misprints.push(r);
-  });
+    if (!el || !assets) return;
+    const ctx = el.getContext('2d');
+    if (!ctx) return;
+    const { size, grayImg } = assets;
+    ctx.clearRect(0, 0, size, size);
+    ctx.drawImage(grayImg, 0, 0, size, size);
+    if (paintCanvas) ctx.drawImage(paintCanvas, 0, 0);
+    if (activeZoneIndex != null && assets.edges[activeZoneIndex]) {
+      ctx.drawImage(assets.edges[activeZoneIndex], 0, 0);
+    }
+  }, [assets, paintCanvas, paintVersion, activeZoneIndex]);
 
   return (
     <div className="relative swatch-card">
-      <div className="rounded-[24px] overflow-hidden bg-surface">
-        <PetSvg svgText={svgText} fills={fills} activeZone={activeZone} />
+      <div className="relative rounded-[24px] overflow-hidden bg-surface">
+        <canvas
+          ref={ref}
+          width={assets.size}
+          height={assets.size}
+          className="block w-full h-auto"
+          role="img"
+          aria-label={title}
+        />
+        {/* PEEK ORIGINAL — hold to reveal the reference photo */}
+        <div
+          className="absolute inset-0 transition-opacity duration-150"
+          style={{ opacity: peeking ? 1 : 0, pointerEvents: 'none' }}
+          aria-hidden={!peeking}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- static game asset, decoded on demand */}
+          <img
+            src={assets.origUrl}
+            alt=""
+            className="block w-full h-auto"
+            draggable={false}
+          />
+          <span className="absolute left-3 top-3 inline-block text-[10px] font-medium uppercase tracking-[0.08em] text-white px-2.5 py-1 rounded-full border-2 border-ink bg-ink/80">
+            Original photo
+          </span>
+        </div>
+        {misprints.length > 0 && !peeking && (
+          <span className="absolute top-3 right-3 flex flex-col items-end gap-1.5" aria-label={`${misprints.length} misprinted zones`}>
+            {misprints.map((m) => (
+              <span
+                key={m.zoneId}
+                className="inline-block text-[10px] font-medium uppercase tracking-[0.08em] text-white px-2.5 py-1 rounded-full border-2 border-ink"
+                style={{ backgroundColor: CORAL }}
+              >
+                Misprint · {m.zoneId.toUpperCase()}
+              </span>
+            ))}
+          </span>
+        )}
       </div>
-      {misprints.length > 0 && (
-        <span className="absolute top-3 right-3 flex flex-col items-end gap-1.5" aria-label={`${misprints.length} misprinted zones`}>
-          {misprints.map((m) => (
-            <span
-              key={m.zoneId}
-              className="inline-block text-[10px] font-medium uppercase tracking-[0.08em] text-white px-2.5 py-1 rounded-full border-2 border-ink"
-              style={{ backgroundColor: CORAL }}
-            >
-              Misprint · {m.zoneId.toUpperCase()}
-            </span>
-          ))}
-        </span>
-      )}
       <span className="sr-only">{title}</span>
     </div>
   );
@@ -254,6 +353,21 @@ function Slider({
   );
 }
 
+// Selection-screen pet thumbnail — the real photo sells the job.
+function PetThumb({ slug }: { slug: PetSlug }) {
+  return (
+    <div className="w-full aspect-square rounded-[24px] overflow-hidden border-2 border-hairline bg-sunken">
+      {/* eslint-disable-next-line @next/next/no-img-element -- static game asset */}
+      <img
+        src={`/pets/photos/${slug}-orig.jpg`}
+        alt=""
+        loading="lazy"
+        className="block w-full h-full object-cover"
+      />
+    </div>
+  );
+}
+
 export default function PrintJob({
   initialPet,
   onExit,
@@ -267,18 +381,23 @@ export default function PrintJob({
     (getPet(initialPet ?? '')?.slug as PetSlug | undefined) ?? 'golden-shaded-longhair',
   );
   const [jobSlug, setJobSlug] = useState<PetSlug | null>(null); // active job pet
-  const [spec, setSpec] = useState<PetSpec | null>(null);
-  const [specError, setSpecError] = useState(false);
+  const [assets, setAssets] = useState<PhotoAssets | null>(null);
+  const [assetsError, setAssetsError] = useState(false);
   const [phase, setPhase] = useState<JobPhase>('select');
   const [mode, setMode] = useState<ColorMode>('hsb');
   const [userHsb, setUserHsb] = useState<HSB>(INITIAL_HSB);
-  const [round, setRound] = useState(0); // index into spec.zones
+  const [round, setRound] = useState(0); // index into manifest zones
   const [results, setResults] = useState<ZoneResult[]>([]);
   const [stats, setStats] = useState<LabStats>(DEFAULT_STATS);
   const [showCopied, setShowCopied] = useState(false);
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'done'>('idle');
-
-  const { svgText, error: svgError } = usePetSvg(jobSlug);
+  const [peeking, setPeeking] = useState(false);
+  const [paintVersion, setPaintVersion] = useState(0);
+  const [compareOriginal, setCompareOriginal] = useState(false);
+  // The paint layer lives in state (it IS render data — the board draws it).
+  // Its inner canvas/ImageData are mutated in place on submit; paintVersion
+  // bumps to tell the board to repaint.
+  const [paint, setPaint] = useState<PaintLayer | null>(null);
 
   // Read-once stats sync (localStorage; harmless when unavailable)
   useEffect(() => {
@@ -293,42 +412,48 @@ export default function PrintJob({
   // ——— Job lifecycle ———
   const startJob = useCallback((slug: PetSlug) => {
     setJobSlug(slug);
-    setSpec(null);
-    setSpecError(false);
+    setAssets(null);
+    setAssetsError(false);
     setResults([]);
     setRound(0);
     setUserHsb(INITIAL_HSB);
+    setPeeking(false);
+    setCompareOriginal(false);
+    setPaint(null);
+    setPaintVersion(0);
     setPhase('playing');
   }, []);
 
-  // Fetch the spec for the active job pet (zones drive round order).
+  // Fetch + decode the photo set for the active job pet.
   useEffect(() => {
     if (!jobSlug) return;
     let cancelled = false;
-    fetch(`/pets/${jobSlug}.spec.json`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<PetSpec>;
-      })
-      .then((data) => {
-        if (!cancelled && Array.isArray(data.zones) && data.zones.length > 0) setSpec(data);
-        else if (!cancelled) setSpecError(true);
+    loadPhotoAssets(jobSlug)
+      .then((loaded) => {
+        if (cancelled) return;
+        const c = document.createElement('canvas');
+        c.width = loaded.size;
+        c.height = loaded.size;
+        const ctx = c.getContext('2d')!;
+        const data = ctx.createImageData(loaded.size, loaded.size);
+        setPaint({ canvas: c, data });
+        setAssets(loaded);
       })
       .catch(() => {
-        if (!cancelled) setSpecError(true);
+        if (!cancelled) setAssetsError(true);
       });
     return () => {
       cancelled = true;
     };
   }, [jobSlug]);
 
-  const zones = spec?.zones ?? [];
-  const currentZone: SpecZone | undefined = zones[round];
+  const zones = assets?.manifest.zones ?? [];
+  const currentZone: PhotoZone | undefined = zones[round];
   const targetRgb: RGB | null = currentZone ? hsbToRgb(currentZone.target) : null;
   const targetHex = targetRgb ? rgbToHex(targetRgb) : '';
 
   const submitInk = useCallback(() => {
-    if (!currentZone || !targetRgb) return;
+    if (!currentZone || !targetRgb || !assets || !paint) return;
     const deltaE = deltaE2000(targetRgb, userColor);
     const roundScore = calculateScore(deltaE);
     const entry: ZoneResult = {
@@ -341,10 +466,14 @@ export default function PrintJob({
       misprint: deltaE > MISPRINT_THRESHOLD,
       quip: zoneQuip(currentZone.id, deltaE),
     };
+    // Paint the zone with the player's ink × photo luminance, then reveal.
+    paintZone(paint, assets, round, userColor);
+    setPaintVersion((v) => v + 1);
+
     const newResults = [...results, entry];
     setResults(newResults);
 
-    if (round + 1 >= TOTAL_ZONES || round + 1 >= zones.length) {
+    if (round + 1 >= zones.length) {
       // Job complete — record stats (counts as a played game, not daily).
       const newTotal = newResults.reduce((sum, r) => sum + r.score, 0);
       const now = new Date();
@@ -362,10 +491,11 @@ export default function PrintJob({
     } else {
       setPhase('submitted');
     }
-  }, [currentZone, targetRgb, targetHex, userColor, userHex, results, round, zones.length]);
+  }, [currentZone, targetRgb, targetHex, userColor, userHex, results, round, zones.length, assets, paint]);
 
   const nextZone = useCallback(() => {
     setUserHsb(INITIAL_HSB);
+    setPeeking(false);
     setRound((r) => r + 1);
     setPhase('playing');
   }, []);
@@ -378,6 +508,10 @@ export default function PrintJob({
     startJob(next.slug);
   }, [jobSlug, startJob]);
 
+  // PEEK — hold to see the original photo (pointer + keyboard).
+  const peekPress = useCallback(() => setPeeking(true), []);
+  const peekRelease = useCallback(() => setPeeking(false), []);
+
   // ——— Share (simplified text card: pet name + score) ———
   const ratingLabel = ratingLabelForScore(totalScore);
   const meanDeltaE = results.length > 0
@@ -385,9 +519,10 @@ export default function PrintJob({
     : 0;
 
   const buildShareText = useCallback(() => {
-    if (!spec) return '';
-    return `ToonTone Proofing Lab — PRINT JOB\nPet: ${spec.name} · ${spec.nameZh}\nScore: ${totalScore}/${TOTAL_ZONES * 100} · ${ratingLabelForScore(totalScore)}\nMean ΔE ${meanDeltaE.toFixed(2)} across ${results.length} ink zones\nhttps://toontonegame.org/?pet=${spec.slug}&mode=printjob&utm_source=share&utm_medium=copy`;
-  }, [spec, totalScore, meanDeltaE, results.length]);
+    if (!assets) return '';
+    const m = assets.manifest;
+    return `ToonTone Proofing Lab — PRINT JOB\nPet: ${m.name} · ${m.nameZh}\nScore: ${totalScore}/${TOTAL_ZONES * 100} · ${ratingLabelForScore(totalScore)}\nMean ΔE ${meanDeltaE.toFixed(2)} across ${results.length} photo zones\nhttps://toontonegame.org/?pet=${m.slug}&mode=printjob&utm_source=share&utm_medium=copy`;
+  }, [assets, totalScore, meanDeltaE, results.length]);
 
   const copyResult = useCallback(() => {
     navigator.clipboard.writeText(buildShareText()).catch(() => {
@@ -398,16 +533,16 @@ export default function PrintJob({
   }, [buildShareText]);
 
   const buildCardData = useCallback((): ShareCardData | null => {
-    if (!spec) return null;
+    if (!assets) return null;
     return {
       totalScore,
       ratingLabel: ratingLabelForScore(totalScore),
       ratingColor: totalScore / TOTAL_ZONES >= 90 ? GRASS_TEXT : totalScore / TOTAL_ZONES >= 75 ? GRASS_TEXT : totalScore / TOTAL_ZONES >= 60 ? SUNSHINE_TEXT : CORAL_TEXT,
-      dateLine: `PRINT JOB · ${spec.name.toUpperCase()}`,
+      dateLine: `PRINT JOB · ${assets.manifest.name.toUpperCase()}`,
       rounds: results.map((r) => ({ target: r.targetHex, guess: r.guessHex, score: r.score })),
       meanDeltaE,
     };
-  }, [spec, totalScore, results, meanDeltaE]);
+  }, [assets, totalScore, results, meanDeltaE]);
 
   const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
@@ -508,7 +643,7 @@ export default function PrintJob({
         </button>
       </span>
       <p className="tt-label tabular text-secondary">
-        Print Jobs · Calibrate a pet, zone by zone
+        Print Jobs · Re-ink a real pet photo, zone by zone
       </p>
     </div>
   );
@@ -523,9 +658,11 @@ export default function PrintJob({
             Print jobs.
           </h1>
           <p className="text-[15px] md:text-[17px] text-secondary mt-3 max-w-[56ch]">
-            Pick a pet off the job board. Five ink zones, five rounds — match each
-            zone&apos;s target color and your calibration becomes its coat. Miss the
-            mark and the press stamps it a misprint.
+            Pick a pet off the job board. You get the original photo and a
+            color-stripped plate — five photo zones, five rounds. Match each
+            zone&apos;s real average color and your calibration becomes its fur.
+            Hold <strong className="text-ink">PEEK ORIGINAL</strong> any time to
+            check the reference; miss the mark and the press stamps it a misprint.
           </p>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-8" role="radiogroup" aria-label="Choose a pet">
@@ -564,16 +701,19 @@ export default function PrintJob({
               Start print job
             </button>
             <p className="tt-label text-secondary">
-              {TOTAL_ZONES} zones · scored by ΔE (CIEDE2000) · total /500
+              {TOTAL_ZONES} photo zones · scored by ΔE (CIEDE2000) · total /500
             </p>
           </div>
+          <p className="tt-label text-secondary mt-4">
+            Photos · TheCatAPI (public pet photo service)
+          </p>
         </section>
       </>
     );
   }
 
   // ═════════ Fetch failures — graceful text-card fallback ═════════
-  if (specError || svgError) {
+  if (assetsError) {
     const pet = getPet(jobSlug ?? '');
     return (
       <>
@@ -584,7 +724,7 @@ export default function PrintJob({
             {pet ? `${pet.name} · ${pet.nameZh}` : 'This pet'}
           </h1>
           <p className="text-[15px] text-secondary mt-3 max-w-[52ch]">
-            The printing plates for this job are missing from the shelf (the
+            The photo plates for this job are missing from the shelf (the
             artwork could not be loaded). Head back and pick another pet.
           </p>
           <button onClick={() => setPhase('select')} className="btn-pill btn-ink px-8 py-3 mt-6">
@@ -595,9 +735,9 @@ export default function PrintJob({
     );
   }
 
-  // ═════════ Screen 3 — finished ═════════
-  if (phase === 'finished' && spec) {
-    const petInfo = getPet(spec.slug);
+  // ═════════ Screen 3 — finished (your print vs the original) ═════════
+  if (phase === 'finished' && assets) {
+    const m = assets.manifest;
     return (
       <>
         {modeLine}
@@ -606,7 +746,7 @@ export default function PrintJob({
             <div>
               <p className="tt-label text-secondary">Print job report</p>
               <h2 className="tt-heading text-ink mt-2">
-                {spec.name} · {spec.nameZh}
+                {m.name} · {m.nameZh}
               </h2>
               <p className="tabular text-[56px] md:text-[72px] leading-none tracking-[-0.04em] text-ink mt-5">
                 {totalScore}
@@ -621,12 +761,57 @@ export default function PrintJob({
               <p className="text-[15px] text-secondary mt-3">{ratingBlurb(ratingLabel)}</p>
             </div>
 
-            {/* The finished pet — big, colored by the player's own inks */}
-            {svgText && (
-              <div className="w-full max-w-[320px] md:max-w-[360px]">
-                <PetPlate svgText={svgText} results={results} title={`Completed print of ${spec.name}`} />
+            {/* The finished photo — player's inks, switchable against original */}
+            <div className="w-full max-w-[320px] md:max-w-[380px]">
+              <div className="flex items-center justify-between px-3 mb-3">
+                <span className="tt-label text-secondary">
+                  {compareOriginal ? 'Original photo' : 'Your print'}
+                </span>
+                <span className="flex gap-1.5" role="group" aria-label="Compare print with original">
+                  <button
+                    onClick={() => setCompareOriginal(false)}
+                    aria-pressed={!compareOriginal}
+                    className={`btn-pill px-4 py-1.5 text-[12px] ${!compareOriginal ? 'bg-ink text-surface border-2 border-ink' : 'btn-ghost'}`}
+                  >
+                    Your print
+                  </button>
+                  <button
+                    onClick={() => setCompareOriginal(true)}
+                    aria-pressed={compareOriginal}
+                    className={`btn-pill px-4 py-1.5 text-[12px] ${compareOriginal ? 'bg-ink text-surface border-2 border-ink' : 'btn-ghost'}`}
+                  >
+                    Original
+                  </button>
+                </span>
               </div>
-            )}
+              {compareOriginal ? (
+                <div className="swatch-card">
+                  <div className="rounded-[24px] overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- static game asset */}
+                    <img
+                      src={assets.origUrl}
+                      alt={`Original photo of ${m.name}`}
+                      width={assets.size}
+                      height={assets.size}
+                      className="block w-full h-auto"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <PhotoBoard
+                  assets={assets}
+                  paintCanvas={paint?.canvas ?? null}
+                  paintVersion={paintVersion}
+                  activeZoneIndex={null}
+                  peeking={false}
+                  misprints={results.filter((r) => r.misprint)}
+                  title={`Completed photo print of ${m.name}`}
+                />
+              )}
+              <p className="tt-label text-secondary px-3 mt-3">
+                Photo · {assets.manifest.credit}
+              </p>
+            </div>
           </div>
 
           {/* Per-zone breakdown */}
@@ -635,7 +820,7 @@ export default function PrintJob({
               <thead>
                 <tr className="border-b border-hairline text-left text-[12px] uppercase tracking-wide text-secondary">
                   <th className="py-2 font-medium">Zone</th>
-                  <th className="py-2 font-medium">Part</th>
+                  <th className="py-2 font-medium">Region</th>
                   <th className="py-2 font-medium">Target</th>
                   <th className="py-2 font-medium">Your ink</th>
                   <th className="py-2 font-medium">ΔE</th>
@@ -647,7 +832,7 @@ export default function PrintJob({
                   <tr key={r.zoneId} className="qc-row border-b border-hairline" style={{ animationDelay: `${i * 80}ms` }}>
                     <td className="py-2.5">{r.zoneId.toUpperCase()}</td>
                     <td className="py-2.5">
-                      {petInfo?.zones[i]?.partEn ?? r.part}
+                      {r.part}
                       {r.misprint && (
                         <span
                           className="ml-2 inline-block text-[10px] uppercase tracking-[0.08em] text-white px-2 py-0.5 rounded-full border border-ink align-middle"
@@ -703,8 +888,8 @@ export default function PrintJob({
   }
 
   // ═════════ Screen 2 — calibration (playing / submitted) ═════════
-  if (!spec || !svgText || !currentZone || !targetRgb) {
-    // Spec or artwork still loading
+  if (!assets || !currentZone || !targetRgb) {
+    // Manifest or photo plates still loading
     return (
       <>
         {modeLine}
@@ -719,6 +904,7 @@ export default function PrintJob({
   const liveDeltaE = deltaE2000(targetRgb, userColor);
   const tier = deltaETier(liveDeltaE);
   const lastResult = results[results.length - 1];
+  const zoneLabel = `${currentZone.part}`;
 
   return (
     <>
@@ -727,10 +913,10 @@ export default function PrintJob({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="tt-label text-secondary">
-              Print job · {spec.name} · {spec.nameZh}
+              Print job · {assets.manifest.name} · {assets.manifest.nameZh}
             </p>
-            <h1 className="tt-heading text-ink mt-2 max-w-[18ch]">
-              Ink zone {String(round + 1).padStart(2, '0')}: {getPet(spec.slug)?.zones[round]?.partEn ?? currentZone.part}
+            <h1 className="tt-heading text-ink mt-2 max-w-[22ch]">
+              Ink zone {String(round + 1).padStart(2, '0')}: {zoneLabel}
             </h1>
           </div>
           <button onClick={() => setPhase('select')} className="btn-pill btn-quiet px-4 py-1.5 text-[12px]">
@@ -739,13 +925,16 @@ export default function PrintJob({
         </div>
 
         <div className="grid gap-x-8 gap-y-8 md:grid-cols-12 mt-8">
-          {/* Left (top on mobile): the pet line art filling up zone by zone */}
+          {/* Left (top on mobile): the grayscale photo filling up zone by zone */}
           <div className="md:col-span-5">
-            <PetPlate
-              svgText={svgText}
-              results={results}
-              activeZone={phase === 'playing' ? currentZone.id : undefined}
-              title={`${spec.name} print in progress`}
+            <PhotoBoard
+              assets={assets}
+              paintCanvas={paint?.canvas ?? null}
+              paintVersion={paintVersion}
+              activeZoneIndex={phase === 'playing' ? round : null}
+              peeking={peeking}
+              misprints={results.filter((r) => r.misprint)}
+              title={`${assets.manifest.name} photo print in progress`}
             />
             <p className="tt-label text-secondary px-3 mt-3">
               Zones inked <span className="text-ink">{results.length}/{zones.length}</span>
@@ -771,6 +960,35 @@ export default function PrintJob({
                   />
                 );
               })}
+            </div>
+
+            {/* PEEK ORIGINAL — hold to compare against the reference photo */}
+            <div className="px-3 mt-4">
+              <button
+                onPointerDown={peekPress}
+                onPointerUp={peekRelease}
+                onPointerLeave={peekRelease}
+                onPointerCancel={peekRelease}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    peekPress();
+                  }
+                }}
+                onKeyUp={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') peekRelease();
+                }}
+                onContextMenu={(e) => e.preventDefault()}
+                aria-pressed={peeking}
+                aria-label="Hold to peek at the original photo"
+                className="btn-pill btn-ink w-full px-6 py-3 select-none"
+                style={{ touchAction: 'none' }}
+              >
+                {peeking ? '👁 Original…' : 'Hold to peek original'}
+              </button>
+              <p className="tt-label text-secondary mt-2">
+                Press and hold — the original photo is your reference.
+              </p>
             </div>
           </div>
 

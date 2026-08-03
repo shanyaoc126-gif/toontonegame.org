@@ -120,20 +120,20 @@ export default async function PetPage({
               </div>
             </div>
 
-            {/* Right: completed artwork (static -full.svg, no JS needed) */}
+            {/* Right: the original photo (the reference players re-ink in game) */}
             <div className="md:col-span-5">
               <div className="swatch-card">
-                {/* eslint-disable-next-line @next/next/no-img-element -- static SVG asset, no optimization needed */}
+                {/* eslint-disable-next-line @next/next/no-img-element -- static photo asset, no optimization needed */}
                 <img
-                  src={`/pets/${pet.slug}-full.svg`}
-                  alt={`Completed ${pet.name} (${pet.nameZh}) illustration`}
-                  width={400}
-                  height={400}
+                  src={`/pets/photos/${pet.slug}-orig.jpg`}
+                  alt={`Original photo of ${pet.name} (${pet.nameZh})`}
+                  width={640}
+                  height={640}
                   className="w-full h-auto rounded-[24px]"
                 />
               </div>
               <p className="tt-label text-secondary px-3 mt-3">
-                Completed plate · {pet.name}
+                Reference photo · {pet.name} · TheCatAPI
               </p>
             </div>
           </div>
@@ -144,8 +144,9 @@ export default async function PetPage({
               Five ink zones
             </h2>
             <p className="text-[15px] text-secondary mt-2 max-w-[56ch]">
-              Each zone is one round in the print job: match the target HSB and
-              your ink fills this part of the pet.
+              Each zone is one round in the print job: the target is the real
+              average color sampled from the photo — match it and your ink
+              re-tints that part of the picture.
             </p>
             <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
               {pet.zones.map((zone, i) => (

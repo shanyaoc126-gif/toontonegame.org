@@ -1,0 +1,76 @@
+{
+ "slug": "shiba-inu",
+ "name": "Shiba Inu",
+ "nameZh": "柴犬",
+ "size": 640,
+ "rounds": 5,
+ "credit": "Dog CEO API (open dog photo service)",
+ "files": {
+  "orig": "shiba-inu-orig.jpg",
+  "canvas": "shiba-inu-canvas.jpg",
+  "masks": [
+   "shiba-inu-z1.png",
+   "shiba-inu-z2.png",
+   "shiba-inu-z3.png",
+   "shiba-inu-z4.png",
+   "shiba-inu-z5.png"
+  ]
+ },
+ "zones": [
+  {
+   "id": "z1",
+   "part": "the eyes & green glints",
+   "pixels": 81126,
+   "target": {
+    "h": 69,
+    "s": 47,
+    "b": 6
+   },
+   "completedFill": "#0e0f08"
+  },
+  {
+   "id": "z2",
+   "part": "the mid warm fur",
+   "pixels": 110346,
+   "target": {
+    "h": 59,
+    "s": 45,
+    "b": 75
+   },
+   "completedFill": "#c0bf69"
+  },
+  {
+   "id": "z3",
+   "part": "the golden coat",
+   "pixels": 115558,
+   "target": {
+    "h": 39,
+    "s": 62,
+    "b": 62
+   },
+   "completedFill": "#9f7d3d"
+  },
+  {
+   "id": "z4",
+   "part": "the golden coat",
+   "pixels": 66504,
+   "target": {
+    "h": 53,
+    "s": 47,
+    "b": 7
+   },
+   "completedFill": "#13120a"
+  },
+  {
+   "id": "z5",
+   "part": "the mid warm fur",
+   "pixels": 86698,
+   "target": {
+    "h": 56,
+    "s": 40,
+    "b": 80
+   },
+   "completedFill": "#cbc579"
+  }
+ ]
+}
