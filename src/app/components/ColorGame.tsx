@@ -9,7 +9,14 @@ import {
 import { utcDateKey, dailyColors, msUntilUtcMidnight, formatCountdown } from '../lib/daily';
 import { LabStats, DEFAULT_STATS, loadStats, saveStats, recordGame, ratingLabelForScore } from '../lib/stats';
 import { downloadShareCard, shareCardFile, ShareCardData } from '../lib/share-card';
+import {
+  isCalibrated, markCalibrated, loadCbAssist, saveCbAssist,
+  shapesForHsb, shapeCodeLabel,
+} from '../lib/calibration';
+import { visionGradeFor, VISION_FOOTNOTE } from '../lib/vision';
 import StatsModal from './StatsModal';
+import CalibrationRitual from './CalibrationRitual';
+import ShapeBadge from './ShapeBadge';
 
 type GameState = 'idle' | 'playing' | 'submitted' | 'finished';
 type GameMode = 'daily' | 'practice';
@@ -89,6 +96,8 @@ export default function ColorGame() {
   const [stats, setStats] = useState<LabStats>(DEFAULT_STATS);
   const [statsOpen, setStatsOpen] = useState(false);
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'done'>('idle');
+  const [ritualOpen, setRitualOpen] = useState(false);
+  const [cbAssist, setCbAssist] = useState(false);
 
   const userColor = hsbToRgb(userHsb);
   const totalScore = history.reduce((sum, h) => sum + h.score, 0);
@@ -126,10 +135,37 @@ export default function ColorGame() {
     // client render stay identical (no hydration mismatch on stats-driven UI).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStats(loadStats());
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('mode') === 'practice') startPractice();
-    else startDaily();
+    setCbAssist(loadCbAssist());
+    if (isCalibrated()) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('mode') === 'practice') startPractice();
+      else startDaily();
+    } else {
+      // First visit: hold the game behind the two-step pre-flight ritual.
+      setRitualOpen(true);
+    }
   }, [startDaily, startPractice]);
+
+  // Persist the assist preference whenever it changes (ritual toggle only;
+  // writing is harmless even if it never changed).
+  useEffect(() => {
+    saveCbAssist(cbAssist);
+  }, [cbAssist]);
+
+  // Completing or skipping the ritual marks it seen. If the game hasn't
+  // started yet (first visit), it also deals the first proof; if the ritual
+  // was re-opened mid-game via the header CALIBRATE link, the run in progress
+  // is left untouched — recalibrating must never eat a streak.
+  const finishRitual = useCallback(() => {
+    markCalibrated();
+    setRitualOpen(false);
+    if (gameState === 'idle') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('mode') === 'practice') startPractice();
+      else startDaily();
+    }
+  }, [gameState, startDaily, startPractice]);
+  const skipRitual = finishRitual;
 
   // F1: UTC countdown to the next daily reset
   useEffect(() => {
@@ -208,12 +244,19 @@ export default function ColorGame() {
   const buildCardData = useCallback((): ShareCardData => {
     const average = history.length > 0 ? totalScore / history.length : 0;
     const rating = ratingFor(average);
+    const meanDeltaE = history.length > 0
+      ? history.reduce((sum, h) => sum + h.deltaE, 0) / history.length
+      : 0;
+    const grade = visionGradeFor(meanDeltaE);
     return {
       totalScore,
       ratingLabel: rating.label,
       ratingColor: rating.color,
       dateLine: gameMode === 'daily' ? `DAILY PROOF · ${utcDateKey()}` : 'PRACTICE PROOF',
       rounds: history.map(h => ({ target: h.target, guess: h.guess, score: h.score })),
+      visionGrade: grade.label,
+      visionColor: grade.color,
+      meanDeltaE,
     };
   }, [gameMode, history, totalScore]);
 
@@ -314,6 +357,12 @@ export default function ColorGame() {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button
+          onClick={() => setRitualOpen(true)}
+          className="px-4 py-1.5 rounded-full font-mono text-[12px] uppercase tracking-wide bg-surface border border-hairline text-secondary hover:text-ink transition-colors"
+        >
+          Calibrate
+        </button>
+        <button
           onClick={() => setStatsOpen(true)}
           aria-haspopup="dialog"
           className="px-4 py-1.5 rounded-full font-mono text-[12px] uppercase tracking-wide bg-surface border border-hairline text-secondary hover:text-ink transition-colors"
@@ -381,6 +430,22 @@ export default function ColorGame() {
       </span>
     </div>
   );
+
+  // ——— Pre-flight ritual (first visit, or re-opened via header CALIBRATE) ———
+  if (ritualOpen) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        {header}
+        {statsOpen && <StatsModal stats={stats} onClose={() => setStatsOpen(false)} />}
+        <CalibrationRitual
+          assist={cbAssist}
+          onAssistChange={setCbAssist}
+          onComplete={finishRitual}
+          onSkip={skipRitual}
+        />
+      </div>
+    );
+  }
 
   // ——— 结算页：质检报告单 + F2 分享 + F3 统计 ———
   if (gameState === 'finished') {
@@ -478,6 +543,63 @@ export default function ColorGame() {
             QC result · {rating.label} · AVG {average.toFixed(1)}/100 · MEAN ΔE {meanDeltaE.toFixed(2)}
           </p>
 
+          {/* COLOR VISION PROFILE — vision grade from mean ΔE (report card) */}
+          {(() => {
+            const grade = visionGradeFor(meanDeltaE);
+            const maxBar = 30; // ΔE scale ceiling for the profile bars
+            return (
+              <section className="mt-6 border-t border-hairline pt-6" aria-labelledby="vision-profile-title">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="font-mono text-[12px] uppercase tracking-wide text-secondary">Color vision profile</p>
+                    <h3 id="vision-profile-title" className="text-[16px] font-bold uppercase tracking-tight text-ink mt-1">
+                      {grade.label}
+                    </h3>
+                    <p className="font-mono text-[12px] text-secondary mt-1">
+                      MEAN ΔE {meanDeltaE.toFixed(2)} · 5 PROOFS · CIEDE2000
+                    </p>
+                    <p className="text-[13px] text-ink mt-2">{grade.blurb}</p>
+                  </div>
+                  <div
+                    className="qc-stamp border-2 rounded-[4px] px-4 py-2 font-bold uppercase tracking-widest text-[15px]"
+                    style={{ borderColor: grade.color, color: grade.color }}
+                  >
+                    {grade.label}
+                  </div>
+                </div>
+
+                <ul className="mt-5 space-y-2">
+                  {history.map((h) => {
+                    const pct = Math.min(100, (h.deltaE / maxBar) * 100);
+                    const barColor = deltaEColor(h.deltaE);
+                    return (
+                      <li key={h.round} className="flex items-center gap-3">
+                        <span className="font-mono tabular-nums text-[11px] text-secondary w-7 shrink-0">R{String(h.round).padStart(2, '0')}</span>
+                        <span className="flex-1 h-4 bg-canvas border border-hairline rounded-[2px] overflow-hidden" aria-hidden="true">
+                          <span
+                            className="block h-full profile-bar"
+                            style={{ width: `${pct}%`, backgroundColor: barColor }}
+                          />
+                        </span>
+                        <span className="font-mono tabular-nums text-[11px] text-secondary w-24 shrink-0 text-right">
+                          ΔE {h.deltaE.toFixed(2)}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="flex justify-between mt-1 font-mono tabular-nums text-[10px] text-secondary" aria-hidden="true">
+                  <span>ΔE 0</span>
+                  <span>{maxBar}+</span>
+                </div>
+
+                <p className="font-mono text-[11px] leading-[1.7] text-secondary mt-4 max-w-[62ch]">
+                  {VISION_FOOTNOTE}
+                </p>
+              </section>
+            );
+          })()}
+
           {/* F2: share actions */}
           <div className="mt-6 flex flex-wrap gap-3">
             {canNativeShare && (
@@ -539,13 +661,23 @@ export default function ColorGame() {
               className="relative h-44 md:h-[260px] rounded-[8px]"
               style={{ backgroundColor: targetHex }}
               role="img"
-              aria-label={`Target color ${targetHex}`}
+              aria-label={`Target color ${targetHex}${cbAssist ? `; shape code ${shapeCodeLabel(shapesForHsb(rgbToHsbPrecise(targetColor)))}` : ''}`}
             >
               <span key={`dev-${round}-${targetHex}`} className="develop-overlay" />
+              {cbAssist && (
+                <span className="shape-chip" aria-hidden="true">
+                  <ShapeBadge shapes={shapesForHsb(rgbToHsbPrecise(targetColor))} size={16} />
+                </span>
+              )}
             </div>
           </div>
           <p className="font-mono text-[12px] uppercase tracking-wide text-secondary px-3">
             Target / Ref <span className="text-ink">{targetHex}</span>
+            {cbAssist && (
+              <span className="ml-2 text-accent">
+                ◦ code: {shapeCodeLabel(shapesForHsb(rgbToHsbPrecise(targetColor)))}
+              </span>
+            )}
           </p>
 
           <div className="proof-frame mt-4">
@@ -553,11 +685,22 @@ export default function ColorGame() {
               className={`proof-card relative h-44 md:h-[260px] rounded-[8px] ${gameState === 'submitted' ? 'proof-overlap' : ''}`}
               style={{ backgroundColor: userHex }}
               role="img"
-              aria-label={`Your color ${userHex}`}
-            />
+              aria-label={`Your color ${userHex}${cbAssist ? `; shape code ${shapeCodeLabel(shapesForHsb(userHsb))}` : ''}`}
+            >
+              {cbAssist && (
+                <span className="shape-chip" aria-hidden="true">
+                  <ShapeBadge shapes={shapesForHsb(userHsb)} size={16} />
+                </span>
+              )}
+            </div>
           </div>
           <p className="font-mono text-[12px] uppercase tracking-wide text-secondary px-3">
             Your print / Guess <span className="text-ink">{userHex}</span>
+            {cbAssist && (
+              <span className="ml-2 text-accent">
+                ◦ code: {shapeCodeLabel(shapesForHsb(userHsb))}
+              </span>
+            )}
           </p>
         </div>
 

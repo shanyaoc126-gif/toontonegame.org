@@ -28,7 +28,7 @@ const jsonLd = {
         {
           '@type': 'HowToStep',
           name: 'Open the lab',
-          text: 'The home page starts you directly on today\'s Daily Challenge — the same five target colors for every player, seeded from the UTC date. Each game has 5 rounds.',
+          text: 'The home page starts you directly on today\'s Daily Challenge — the same five target colors for every player, seeded from the UTC date. Each game has 5 rounds. On your first visit a skippable two-step pre-flight (monitor check + color vision assist) appears instead.',
         },
         {
           '@type': 'HowToStep',
@@ -48,7 +48,7 @@ const jsonLd = {
         {
           '@type': 'HowToStep',
           name: 'Finish all 5 rounds',
-          text: 'After 5 rounds you get a total score, an average, and a rating from Color Novice to Color Master, plus a shareable report card.',
+          text: 'After 5 rounds you get a total score, an average, and a rating from Color Novice to Color Master, plus a Color Vision Profile graded from your mean ΔE and a shareable report card.',
         },
       ],
     },

@@ -1,5 +1,10 @@
 // F2 share card — canvas-drawn 1200x630 PNG in the Proofing Lab visual
 // language: paper canvas, hairlines, mono data, QC stamp outline.
+//
+// Batch 2: added the COLOR VISION grade line (vision grade from mean ΔE).
+// Layout is the same 1200x630 plate: score font tightened (110→84px) and the
+// per-round swatch pairs trimmed (120→92px) to free the strip above the
+// footer for the grade line.
 
 export interface ShareCardData {
   totalScore: number;      // out of 500
@@ -7,6 +12,9 @@ export interface ShareCardData {
   ratingColor: string;     // hex
   dateLine: string;        // e.g. "DAILY PROOF · 2026-07-28" or "PRACTICE PROOF"
   rounds: { target: string; guess: string; score: number }[];
+  visionGrade?: string;    // e.g. "PRESS-ROOM GRADE" (vision grade, not rating)
+  visionColor?: string;    // hex for the grade line
+  meanDeltaE?: number;     // printed next to the grade when present
 }
 
 const INK = '#141412';
@@ -53,38 +61,38 @@ function drawShareCard(
   ctx.lineTo(W - 60, 136);
   ctx.stroke();
 
-  // Score (mono, tabular feel)
+  // Score (mono, tabular feel) — tightened from 110px to make room below
   ctx.fillStyle = INK;
-  ctx.font = `400 110px ${MONO}`;
-  ctx.fillText(String(data.totalScore), 60, 280);
+  ctx.font = `400 84px ${MONO}`;
+  ctx.fillText(String(data.totalScore), 60, 252);
   const scoreWidth = ctx.measureText(String(data.totalScore)).width;
   ctx.fillStyle = SECONDARY;
-  ctx.font = `400 44px ${MONO}`;
-  ctx.fillText('/500', 60 + scoreWidth + 16, 280);
+  ctx.font = `400 34px ${MONO}`;
+  ctx.fillText('/500', 60 + scoreWidth + 14, 252);
 
   // QC stamp (rotated outline, rating color)
   ctx.save();
-  ctx.translate(W - 220, 210);
+  ctx.translate(W - 210, 200);
   ctx.rotate((-4 * Math.PI) / 180);
   ctx.strokeStyle = data.ratingColor;
   ctx.lineWidth = 3;
-  ctx.font = `700 30px ${SANS}`;
+  ctx.font = `700 26px ${SANS}`;
   const label = data.ratingLabel;
   const tw = ctx.measureText(label).width;
-  ctx.strokeRect(-tw / 2 - 24, -34, tw + 48, 62);
+  ctx.strokeRect(-tw / 2 - 22, -30, tw + 44, 54);
   ctx.fillStyle = data.ratingColor;
   ctx.textAlign = 'center';
-  ctx.fillText(label, 0, 8);
+  ctx.fillText(label, 0, 6);
   ctx.restore();
   ctx.textAlign = 'left';
 
-  // Round swatch pairs: 5 columns, target over print
+  // Round swatch pairs: 5 columns, target over print (trimmed to 92px)
   const cols = 5;
-  const sw = 120, gapX = 24;
+  const sw = 92, gapX = 24;
   const totalW = cols * sw + (cols - 1) * gapX;
   const x0 = (W - totalW) / 2;
-  const y0 = 310;
-  ctx.font = `400 20px ${MONO}`;
+  const y0 = 296;
+  ctx.font = `400 17px ${MONO}`;
   data.rounds.slice(0, 5).forEach((r, i) => {
     const x = x0 + i * (sw + gapX);
     // crop-mark style frame ticks around the pair
@@ -110,8 +118,38 @@ function drawShareCard(
 
     // score under the pair
     ctx.fillStyle = r.score >= 90 ? '#1E8A4C' : r.score >= 70 ? '#D9A441' : '#DA3A2E';
-    ctx.fillText(`R${i + 1} ${r.score}`, x, y0 + sw * 2 + 10 + 30);
+    ctx.fillText(`R${i + 1} ${r.score}`, x, y0 + sw * 2 + 10 + 24);
   });
+
+  // COLOR VISION grade line — sits between the swatch strip and the footer
+  if (data.visionGrade) {
+    const deltaEPart = typeof data.meanDeltaE === 'number'
+      ? ` · MEAN ΔE ${data.meanDeltaE.toFixed(2)}`
+      : '';
+    const prefix = 'COLOR VISION: ';
+    ctx.font = `400 17px ${MONO}`;
+    const prefixW = ctx.measureText(prefix).width;
+    ctx.font = `700 21px ${MONO}`;
+    const gradeW = ctx.measureText(data.visionGrade).width;
+    ctx.font = `400 17px ${MONO}`;
+    const suffixW = ctx.measureText(deltaEPart).width;
+    const lineW = prefixW + gradeW + suffixW;
+    let cx = (W - lineW) / 2;
+    const baseY = 566;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = SECONDARY;
+    ctx.font = `400 17px ${MONO}`;
+    ctx.fillText(prefix, cx, baseY);
+    cx += prefixW;
+    ctx.fillStyle = data.visionColor ?? ACCENT;
+    ctx.font = `700 21px ${MONO}`;
+    ctx.fillText(data.visionGrade, cx, baseY);
+    cx += gradeW;
+    ctx.fillStyle = SECONDARY;
+    ctx.font = `400 17px ${MONO}`;
+    ctx.fillText(deltaEPart, cx, baseY);
+  }
+
   // Footer hairline + URL + accent register line
   ctx.strokeStyle = HAIRLINE;
   ctx.lineWidth = 1;

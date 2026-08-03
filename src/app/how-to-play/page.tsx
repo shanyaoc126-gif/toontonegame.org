@@ -15,11 +15,11 @@ const jsonLd = {
       '@type': 'HowTo',
       name: 'How to Play ToonTone',
       step: [
-        { '@type': 'HowToStep', name: 'Open the lab and pick a mode', text: 'The home page starts you directly on today\'s Daily Challenge — the same five target colors for every player on the planet. If you want reps without stakes, switch to Practice mode for endless random proofs — 5 rounds per run. Both modes use identical rules and scoring.' },
+        { '@type': 'HowToStep', name: 'Open the lab and pick a mode', text: 'The home page starts you directly on today\'s Daily Challenge — the same five target colors for every player on the planet. On your very first visit a two-step pre-flight appears instead: a monitor check and the color vision assist toggle. It\'s skippable in one click and never appears again once seen. If you want reps without stakes, switch to Practice mode for endless random proofs — 5 rounds per run. Both modes use identical rules and scoring.' },
         { '@type': 'HowToStep', name: 'Read the proof', text: 'Each round shows a single flat target swatch. No gradients, no texture, no hints — just one color your eye has to hold while your hands work the sliders. Take a second to name what you see before touching anything.' },
         { '@type': 'HowToStep', name: 'Dial in your match', text: 'You get three slider channels. The default mode is HSB (hue, saturation, brightness); you can switch to RGB or CMYK at any time — the color you\'re building stays put, only the controls change.' },
         { '@type': 'HowToStep', name: 'Submit your proof', text: 'Hit submit when you think it would pass on press. The lab computes the CIEDE2000 color difference (ΔE) between your swatch and the target — no appeals, no rounding in your favor.' },
-        { '@type': 'HowToStep', name: 'Read your QC report', text: 'After five rounds you get a total score out of 500, a per-round ΔE breakdown, and a press rating from Color Novice to Color Master. Finish a Daily Challenge and your streak grows by one day.' },
+        { '@type': 'HowToStep', name: 'Read your QC report', text: 'After five rounds you get a total score out of 500, a per-round ΔE breakdown, and a press rating from Color Novice to Color Master, plus a Color Vision Profile graded from your mean ΔE. Finish a Daily Challenge and your streak grows by one day.' },
       ],
     },
     {
@@ -48,7 +48,7 @@ export default function HowToPlayPage() {
       <H2>The 5 Steps</H2>
 
       <H3>1. Open the lab and pick a mode</H3>
-      <P>The home page starts you directly on today&apos;s <strong>Daily Challenge</strong> — the same five target colors for every player on the planet. If you want reps without stakes, switch to <strong>Practice mode</strong> for endless random proofs — 5 rounds per run. Both modes use identical rules and scoring.</P>
+      <P>The home page starts you directly on today&apos;s <strong>Daily Challenge</strong> — the same five target colors for every player on the planet. On your very first visit a two-step pre-flight appears instead: a monitor check and the color vision assist toggle. It&apos;s skippable in one click and never appears again once seen. If you want reps without stakes, switch to <strong>Practice mode</strong> for endless random proofs — 5 rounds per run. Both modes use identical rules and scoring.</P>
 
       <H3>2. Read the proof</H3>
       <P>Each round shows a single flat target swatch. No gradients, no texture, no hints — just one color your eye has to hold while your hands work the sliders. Take a second to name what you see before touching anything: &quot;a dusty teal, fairly dark&quot; is a working hypothesis you can test.</P>
@@ -60,7 +60,7 @@ export default function HowToPlayPage() {
       <P>Hit submit when you think it would pass on press. The lab computes the CIEDE2000 color difference (ΔE) between your swatch and the target — no appeals, no rounding in your favor.</P>
 
       <H3>5. Read your QC report</H3>
-      <P>After five rounds you get a total score out of 500, a per-round ΔE breakdown, and a press rating from <strong>Color Novice</strong> to <strong>Color Master</strong>. Finish a Daily Challenge and your streak grows by one day. Share the report card if you dare.</P>
+      <P>After five rounds you get a total score out of 500, a per-round ΔE breakdown, and a press rating from <strong>Color Novice</strong> to <strong>Color Master</strong>. The report also prints a <strong>Color Vision Profile</strong> — a vision grade graded from your mean ΔE (PRESS-ROOM GRADE under 2, PROOFER under 5, APPRENTICE under 10, otherwise TRAINEE) with a per-round ΔE strip; it&apos;s a shop-floor honorific, not a vision test. Finish a Daily Challenge and your streak grows by one day. Share the report card if you dare.</P>
 
       <H2>HSB Tuning: Hue First, Then Saturation, Then Brightness</H2>
       <P>Every how-to-play guide for this genre tells you to set hue first. Few explain why, so here is the lab version.</P>

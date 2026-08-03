@@ -134,10 +134,44 @@ input[type="range"]::-moz-range-thumb {
   animation: modal-in 200ms ease-out both;
 }
 
+/* ————— 色盲辅助：色块角落的形状编码角标 ————— */
+.shape-chip {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 6px;
+  background: #FCFBF7;
+  border: 1px solid #E3E0D6;
+  border-radius: 3px;
+  line-height: 0;
+}
+
+/* ————— 开局校准仪式：步骤切换 240ms 淡入 ————— */
+@keyframes ritual-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.ritual-in {
+  animation: ritual-in 240ms ease-out both;
+}
+
+/* ————— 结算页 COLOR VISION PROFILE：ΔE 条 300ms 生长 ————— */
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.profile-bar {
+  transform-origin: left center;
+  animation: bar-grow 300ms ease-out both;
+}
+
 /* ————— prefers-reduced-motion 降级 ————— */
 @media (prefers-reduced-motion: reduce) {
   .develop-overlay { display: none; }
   .proof-card { transition: none; }
-  .qc-stamp, .qc-row, .stats-modal-in { animation: none; }
+  .qc-stamp, .qc-row, .stats-modal-in, .ritual-in { animation: none; }
+  .profile-bar { animation: none; }
   .instrument-panel * { transition: none !important; }
 }
