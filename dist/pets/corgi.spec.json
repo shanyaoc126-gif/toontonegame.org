@@ -1,0 +1,63 @@
+{
+  "slug": "corgi",
+  "name": "Pembroke Welsh Corgi",
+  "nameZh": "柯基",
+  "zones": [
+    {
+      "id": "z1",
+      "part": "黄棕背",
+      "completedFill": "#e2a55f",
+      "target": {
+        "h": 32,
+        "s": 58,
+        "b": 89
+      },
+      "note": "黄棕背：头与身体的黄棕色主毛色。"
+    },
+    {
+      "id": "z2",
+      "part": "白胸腹",
+      "completedFill": "#fdfcf8",
+      "target": {
+        "h": 48,
+        "s": 2,
+        "b": 99
+      },
+      "note": "白胸腹：鼻梁白筋、白围脖胸毛与四只小白袜。"
+    },
+    {
+      "id": "z3",
+      "part": "粉舌",
+      "completedFill": "#f2a0aa",
+      "target": {
+        "h": 353,
+        "s": 34,
+        "b": 95
+      },
+      "note": "粉舌：咧嘴大笑时甩出来的大粉舌。"
+    },
+    {
+      "id": "z4",
+      "part": "黑鼻眼",
+      "completedFill": "#33302c",
+      "target": {
+        "h": 34,
+        "s": 14,
+        "b": 20
+      },
+      "note": "黑鼻眼：黑鼻头与圆眼睛。"
+    },
+    {
+      "id": "z5",
+      "part": "耳内奶油",
+      "completedFill": "#f6ddbe",
+      "target": {
+        "h": 33,
+        "s": 23,
+        "b": 96
+      },
+      "note": "耳内奶油：超大立耳内侧的奶油色。"
+    }
+  ],
+  "personality": "小短腿限量款，大耳朵是两台时刻接收零食信号的卫星天线。"
+}

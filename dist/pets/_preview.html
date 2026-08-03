@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>pet preview</title>
+<style>body{background:#efe9dc;font-family:sans-serif;margin:0;padding:16px}
+.grid{display:flex;flex-wrap:wrap;gap:12px}
+.card{background:#fff;border:1px solid #ccc;border-radius:10px;padding:8px;width:300px}
+.card h3{margin:4px 0;font-size:14px;text-align:center}
+img{width:100%;height:280px;background:#fff}
+.row{display:flex;gap:8px}
+</style></head>
+<body><h2>Pet assets preview</h2><div class="grid" id="g"></div>
+<script>
+const pets=["golden-shaded-longhair","ragdoll","shiba-inu","corgi"];
+const names={"golden-shaded-longhair":"长毛金渐层","ragdoll":"布偶猫","shiba-inu":"柴犬","corgi":"柯基"};
+const g=document.getElementById("g");
+for(const p of pets){
+  const c=document.createElement("div");c.className="card";
+  c.innerHTML=`<h3>${names[p]} line</h3><img src="${p}.svg"><h3>${names[p]} full</h3><img src="${p}-full.svg">`;
+  g.appendChild(c);
+}
+</script></body></html>

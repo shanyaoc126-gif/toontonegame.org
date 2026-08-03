@@ -1,0 +1,63 @@
+{
+  "slug": "golden-shaded-longhair",
+  "name": "Golden Shaded Longhair",
+  "nameZh": "长毛金渐层",
+  "zones": [
+    {
+      "id": "z1",
+      "part": "底绒",
+      "completedFill": "#f5ead6",
+      "target": {
+        "h": 39,
+        "s": 13,
+        "b": 96
+      },
+      "note": "底绒：暖奶油白底绒，是整件「渐变印刷」的画布底色。"
+    },
+    {
+      "id": "z2",
+      "part": "毛尖金",
+      "completedFill": "#e6a94e",
+      "target": {
+        "h": 36,
+        "s": 66,
+        "b": 90
+      },
+      "note": "毛尖金：头顶与背部的金色毛尖渐层，金渐层的招牌光泽。"
+    },
+    {
+      "id": "z3",
+      "part": "耳背深金",
+      "completedFill": "#c17f28",
+      "target": {
+        "h": 34,
+        "s": 79,
+        "b": 76
+      },
+      "note": "耳背深金：耳朵背面更深的金棕色，渐层最深的一档。"
+    },
+    {
+      "id": "z4",
+      "part": "绿金眼",
+      "completedFill": "#a4b94f",
+      "target": {
+        "h": 72,
+        "s": 57,
+        "b": 73
+      },
+      "note": "绿金眼：大圆眼，绿金色虹膜，像两颗橄榄糖。"
+    },
+    {
+      "id": "z5",
+      "part": "腮粉",
+      "completedFill": "#f4c3bd",
+      "target": {
+        "h": 7,
+        "s": 23,
+        "b": 96
+      },
+      "note": "腮粉：脸颊腮红与粉色鼻头，负责可爱度超标。"
+    }
+  ],
+  "personality": "把日落穿在毛尖上的行走渐变盘，蓬松度随季节自动膨胀。"
+}

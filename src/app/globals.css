@@ -242,6 +242,16 @@ input[type="range"]:active::-moz-range-thumb {
   opacity: 0.5;
 }
 
+/* ————— Print Job: injected pet SVGs fill their container ————— */
+.pet-svg {
+  line-height: 0;
+}
+.pet-svg svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
 /* ————— prefers-reduced-motion: keep every degradation ————— */
 @media (prefers-reduced-motion: reduce) {
   .develop-overlay { display: none; }

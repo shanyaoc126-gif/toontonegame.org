@@ -37,6 +37,7 @@ export function SiteFooter() {
           <Link href="/what-is-delta-e" className="text-[14px] text-ink hover:underline">What is ΔE</Link>
           <Link href="/hsb-color-guide" className="text-[14px] text-ink hover:underline">HSB Guide</Link>
           <Link href="/faq" className="text-[14px] text-ink hover:underline">FAQ</Link>
+          <Link href="/pets/golden-shaded-longhair" className="text-[14px] text-ink hover:underline">Pets</Link>
           <Link href="/privacy" className="text-[14px] text-secondary hover:underline">Privacy Policy</Link>
           <Link href="/terms" className="text-[14px] text-secondary hover:underline">Terms of Service</Link>
         </div>

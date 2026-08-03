@@ -1,0 +1,63 @@
+{
+  "slug": "shiba-inu",
+  "name": "Shiba Inu",
+  "nameZh": "柴犬",
+  "zones": [
+    {
+      "id": "z1",
+      "part": "赤背",
+      "completedFill": "#d8793a",
+      "target": {
+        "h": 24,
+        "s": 73,
+        "b": 85
+      },
+      "note": "赤背：柴犬标志性的赤橙色背毛，含立耳与卷尾。"
+    },
+    {
+      "id": "z2",
+      "part": "白腹眉点",
+      "completedFill": "#fbf5ea",
+      "target": {
+        "h": 39,
+        "s": 7,
+        "b": 98
+      },
+      "note": "白腹眉点：脸颊、胸前白毛与眼睛上方的两粒「四眼」眉点。"
+    },
+    {
+      "id": "z3",
+      "part": "黑鼻眼",
+      "completedFill": "#33302c",
+      "target": {
+        "h": 34,
+        "s": 14,
+        "b": 20
+      },
+      "note": "黑鼻眼：黑鼻头与圆圆的深色眼睛。"
+    },
+    {
+      "id": "z4",
+      "part": "耳内奶油",
+      "completedFill": "#f3d9b6",
+      "target": {
+        "h": 34,
+        "s": 25,
+        "b": 95
+      },
+      "note": "耳内奶油：立耳内侧的奶油色。"
+    },
+    {
+      "id": "z5",
+      "part": "舌粉",
+      "completedFill": "#ef9fa0",
+      "target": {
+        "h": 359,
+        "s": 33,
+        "b": 94
+      },
+      "note": "舌粉：咧嘴笑时的小粉舌。"
+    }
+  ],
+  "personality": "卷尾是肉桂卷，笑容是半永久焊死的那种倔强可爱。"
+}

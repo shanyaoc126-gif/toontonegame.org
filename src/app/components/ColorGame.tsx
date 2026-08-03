@@ -17,9 +17,10 @@ import { visionGradeFor, VISION_FOOTNOTE } from '../lib/vision';
 import StatsModal from './StatsModal';
 import CalibrationRitual from './CalibrationRitual';
 import ShapeBadge from './ShapeBadge';
+import PrintJob from './PrintJob';
 
 type GameState = 'idle' | 'playing' | 'submitted' | 'finished';
-type GameMode = 'daily' | 'practice';
+type GameMode = 'daily' | 'practice' | 'print';
 
 const TOTAL_ROUNDS = 5;
 const INITIAL_HSB: HSB = { h: 0, s: 0, b: 50 };
@@ -139,9 +140,14 @@ export default function ColorGame() {
     setHistory([]);
   }, []);
 
+  const startPrint = useCallback(() => {
+    setGameMode('print');
+  }, []);
+
   // Instant play: landing opens straight into today's Daily (or Practice via
-  // /?mode=practice deep link). The calibration ritual is available any time
-  // from the nav CALIBRATE button — it no longer gates the first visit.
+  // /?mode=practice, Print Jobs via /?mode=printjob deep link). The
+  // calibration ritual is available any time from the nav CALIBRATE button —
+  // it no longer gates the first visit.
   useEffect(() => {
     // Read-once sync from localStorage (external system). Done in an effect
     // rather than the initializer so the server-rendered HTML and the first
@@ -150,7 +156,9 @@ export default function ColorGame() {
     setStats(loadStats());
     setCbAssist(loadCbAssist());
     const params = new URLSearchParams(window.location.search);
-    if (params.get('mode') === 'practice') startPractice();
+    const modeParam = params.get('mode');
+    if (modeParam === 'practice') startPractice();
+    else if (modeParam === 'printjob') setGameMode('print');
     else startDaily();
   }, [startDaily, startPractice]);
 
@@ -427,6 +435,17 @@ export default function ColorGame() {
         >
           Practice
         </button>
+        <button
+          onClick={startPrint}
+          aria-pressed={gameMode === 'print'}
+          className={`btn-pill px-5 py-2 text-[13px] ${
+            gameMode === 'print'
+              ? 'bg-ink text-surface border-2 border-ink'
+              : 'btn-ghost'
+          }`}
+        >
+          Print Jobs
+        </button>
       </span>
       <p className="tt-label tabular text-secondary">
         {gameMode === 'daily'
@@ -462,6 +481,27 @@ export default function ColorGame() {
       onClose={closeRitual}
     />
   );
+
+  // ——— PRINT JOB mode — self-contained view; the pill row above stays visible
+  // via PrintJob's own modeLine so Daily/Practice/Print Jobs are always one
+  // click apart. Deep link: /?mode=printjob[&pet=<slug>].
+  if (gameMode === 'print') {
+    const initialPet = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('pet') ?? undefined
+      : undefined;
+    return (
+      <div className="relative mx-auto w-full max-w-[1200px] px-4 pt-5 pb-14 md:px-8 md:pt-8">
+        {nav}
+        {statsOpen && <StatsModal stats={stats} onClose={() => setStatsOpen(false)} />}
+        {ritualModal}
+        <PrintJob
+          initialPet={initialPet}
+          onExit={startDaily}
+          onPractice={startPractice}
+        />
+      </div>
+    );
+  }
 
   // ——— 结算页：PROOF REPORT + share + stats ———
   if (gameState === 'finished') {
