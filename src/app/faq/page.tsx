@@ -34,8 +34,8 @@ const FAQ_ITEMS: { section: string; items: { q: string; a: React.ReactNode; aTex
       },
       {
         q: 'What is Practice mode?',
-        a: <>Unlimited random rounds with identical rules and scoring, but no streak pressure. It&apos;s where you build technique between Daily Challenges — the equivalent of pulling test proofs before the real run.</>,
-        aText: 'Unlimited random rounds with identical rules and scoring, but no streak pressure. It\'s where you build technique between Daily Challenges — the equivalent of pulling test proofs before the real run.',
+        a: <>Endless random proofs — 5 rounds per run — with identical rules and scoring, but no streak pressure. It&apos;s where you build technique between Daily Challenges — the equivalent of pulling test proofs before the real run.</>,
+        aText: 'Endless random proofs — 5 rounds per run — with identical rules and scoring, but no streak pressure. It\'s where you build technique between Daily Challenges — the equivalent of pulling test proofs before the real run.',
       },
       {
         q: 'What is a streak?',

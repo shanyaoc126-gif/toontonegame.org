@@ -44,16 +44,6 @@ export function hsbToRgb(hsb: HSB): RGB {
   };
 }
 
-// RGB to HSB (rounded, for display)
-export function rgbToHsb(rgb: RGB): HSB {
-  const p = rgbToHsbPrecise(rgb);
-  return {
-    h: Math.round(p.h),
-    s: Math.round(p.s),
-    b: Math.round(p.b),
-  };
-}
-
 // RGB to HSB without rounding. Used to keep HSB as the single internal
 // source of truth: storing the precise value means untouched slider channels
 // do not drift by ±1 through repeated RGB<->mode round-trips.
@@ -115,17 +105,6 @@ export function cmykToRgb(cmyk: CMYK): RGB {
 export function rgbToHex(rgb: RGB): string {
   const toHex = (n: number) => n.toString(16).padStart(2, '0');
   return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`;
-}
-
-// Hex to RGB
-export function hexToRgb(hex: string): RGB {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!result) return { r: 0, g: 0, b: 0 };
-  return {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16),
-  };
 }
 
 // Delta E 2000 - perceptual color difference
@@ -250,22 +229,4 @@ export function calculateScore(deltaE: number): number {
   // Delta E ~ 100 = completely different, score 0
   const score = Math.max(0, Math.min(100, 100 - deltaE));
   return Math.round(score);
-}
-
-// Get color in current mode
-export function getColorInMode(rgb: RGB, mode: ColorMode): HSB | RGB | CMYK {
-  switch (mode) {
-    case 'hsb': return rgbToHsb(rgb);
-    case 'rgb': return rgb;
-    case 'cmyk': return rgbToCmyk(rgb);
-  }
-}
-
-// Convert from mode to RGB
-export function modeToRgb(value: HSB | RGB | CMYK, mode: ColorMode): RGB {
-  switch (mode) {
-    case 'hsb': return hsbToRgb(value as HSB);
-    case 'rgb': return value as RGB;
-    case 'cmyk': return cmykToRgb(value as CMYK);
-  }
 }

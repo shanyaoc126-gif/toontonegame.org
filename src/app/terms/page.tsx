@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — ToonTone Challenge',
-  description: 'Terms of service for ToonTone Challenge, a free browser-based color matching game.',
+  title: 'Terms of Service — ToonTone Proofing Lab',
+  description: 'Terms of service for ToonTone Proofing Lab, a free browser-based color matching game.',
 };
 
 export default function TermsPage() {
@@ -16,7 +16,7 @@ export default function TermsPage() {
 
           <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink pt-2">The service</h2>
           <p>
-            ToonTone Challenge is a free, browser-based color matching game provided
+            ToonTone Proofing Lab is a free, browser-based color matching game provided
             &quot;as is&quot;, without warranties of any kind. It runs entirely in your
             browser and requires no account.
           </p>
@@ -30,7 +30,7 @@ export default function TermsPage() {
 
           <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink pt-2">Intellectual property</h2>
           <p>
-            ToonTone Challenge is an independent project and is not affiliated with,
+            ToonTone Proofing Lab is an independent project and is not affiliated with,
             endorsed by, or connected to toontone.com or any similar service.
           </p>
 

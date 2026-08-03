@@ -7,8 +7,9 @@ import {
   deltaE2000, calculateScore, rgbToHex,
 } from '../lib/color-utils';
 import { utcDateKey, dailyColors, msUntilUtcMidnight, formatCountdown } from '../lib/daily';
-import { LabStats, loadStats, saveStats, recordGame } from '../lib/stats';
-import { downloadShareCard } from '../lib/share-card';
+import { LabStats, DEFAULT_STATS, loadStats, saveStats, recordGame, ratingLabelForScore } from '../lib/stats';
+import { downloadShareCard, shareCardFile, ShareCardData } from '../lib/share-card';
+import StatsModal from './StatsModal';
 
 type GameState = 'idle' | 'playing' | 'submitted' | 'finished';
 type GameMode = 'daily' | 'practice';
@@ -38,12 +39,11 @@ function ratingFor(average: number): { label: string; blurb: string; color: stri
 // Numeric readout that counts up on mount / value change (300ms).
 // Falls back to the final value instantly under prefers-reduced-motion.
 function CountUp({ value, decimals = 0, duration = 300 }: { value: number; decimals?: number; duration?: number }) {
+  const reduced = typeof window !== 'undefined'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const [display, setDisplay] = useState(value);
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setDisplay(value);
-      return;
-    }
+    if (reduced) return; // render `value` directly; no animation
     const start = performance.now();
     let raf = 0;
     const tick = (t: number) => {
@@ -53,8 +53,23 @@ function CountUp({ value, decimals = 0, duration = 300 }: { value: number; decim
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [value, duration]);
-  return <>{display.toFixed(decimals)}</>;
+  }, [value, duration, reduced]);
+  return <>{(reduced ? value : display).toFixed(decimals)}</>;
+}
+
+// ΔE proximity tiers for the calibration monitor — QC palette from globals.css.
+function deltaEColor(deltaE: number): string {
+  if (deltaE <= 2) return '#00A6C0';  // locked in — process cyan
+  if (deltaE <= 8) return '#1E8A4C';  // within tolerance — QC pass
+  if (deltaE <= 20) return '#D9A441'; // approaching — QC near
+  return '#DA3A2E';                   // off target — QC fail
+}
+
+function deltaEVerdict(deltaE: number): string {
+  if (deltaE <= 2) return 'Visually identical · press-ready';
+  if (deltaE <= 8) return 'Within tolerance · fine tuning';
+  if (deltaE <= 20) return 'Approaching · keep dialing';
+  return 'Off target · check hue first';
 }
 
 export default function ColorGame() {
@@ -71,7 +86,9 @@ export default function ColorGame() {
   const [history, setHistory] = useState<RoundResult[]>([]);
   const [showCopied, setShowCopied] = useState(false);
   const [countdown, setCountdown] = useState('');
-  const [stats, setStats] = useState<LabStats>({ streak: 0, lastDailyDate: '', bestScore: 0 });
+  const [stats, setStats] = useState<LabStats>(DEFAULT_STATS);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [shareState, setShareState] = useState<'idle' | 'sharing' | 'done'>('idle');
 
   const userColor = hsbToRgb(userHsb);
   const totalScore = history.reduce((sum, h) => sum + h.score, 0);
@@ -104,6 +121,10 @@ export default function ColorGame() {
   // F1/F4: home page opens directly on today's Daily Challenge;
   // /?mode=practice deep link opens Practice instead.
   useEffect(() => {
+    // Read-once sync from localStorage (external system). Done in an effect
+    // rather than the initializer so the server-rendered HTML and the first
+    // client render stay identical (no hydration mismatch on stats-driven UI).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStats(loadStats());
     const params = new URLSearchParams(window.location.search);
     if (params.get('mode') === 'practice') startPractice();
@@ -163,34 +184,68 @@ export default function ColorGame() {
     setGameState('playing');
   }, [round, gameMode, targets]);
 
-  // F2: copy text — score + rating + link with UTM, no comparative claims
-  const copyResult = useCallback(() => {
+  // F2: share text — score + rating + link with UTM, no comparative claims
+  const buildShareText = useCallback(() => {
     const average = history.length > 0 ? totalScore / history.length : 0;
     const rating = ratingFor(average);
     const meanDeltaE = history.length > 0
       ? history.reduce((sum, h) => sum + h.deltaE, 0) / history.length
       : 0;
-    const modeLine = gameMode === 'daily' ? `Daily ${utcDateKey()}` : 'Practice';
-    const text = `ToonTone Proofing Lab — ${modeLine}\nScore: ${totalScore}/${TOTAL_ROUNDS * 100} · ${rating.label}\nMean ΔE ${meanDeltaE.toFixed(2)} across ${history.length} proofs\nhttps://toontonegame.org/?utm_source=share&utm_medium=copy`;
-    navigator.clipboard.writeText(text).catch(() => {
+    const shareModeLine = gameMode === 'daily' ? `Daily ${utcDateKey()}` : 'Practice';
+    return `ToonTone Proofing Lab — ${shareModeLine}\nScore: ${totalScore}/${TOTAL_ROUNDS * 100} · ${rating.label}\nMean ΔE ${meanDeltaE.toFixed(2)} across ${history.length} proofs\nhttps://toontonegame.org/?utm_source=share&utm_medium=copy`;
+  }, [gameMode, history, totalScore]);
+
+  // F2: copy text
+  const copyResult = useCallback(() => {
+    navigator.clipboard.writeText(buildShareText()).catch(() => {
       // Clipboard can be unavailable (permissions, non-secure context); ignore.
     });
     setShowCopied(true);
     setTimeout(() => setShowCopied(false), 2000);
-  }, [gameMode, history, totalScore]);
+  }, [buildShareText]);
 
-  // F2: download the PNG share card
-  const shareCard = useCallback(() => {
+  // F2: share-card payload (shared by download + Web Share)
+  const buildCardData = useCallback((): ShareCardData => {
     const average = history.length > 0 ? totalScore / history.length : 0;
     const rating = ratingFor(average);
-    downloadShareCard({
+    return {
       totalScore,
       ratingLabel: rating.label,
       ratingColor: rating.color,
       dateLine: gameMode === 'daily' ? `DAILY PROOF · ${utcDateKey()}` : 'PRACTICE PROOF',
       rounds: history.map(h => ({ target: h.target, guess: h.guess, score: h.score })),
-    });
+    };
   }, [gameMode, history, totalScore]);
+
+  // F2: download the PNG share card
+  const shareCard = useCallback(() => {
+    downloadShareCard(buildCardData());
+  }, [buildCardData]);
+
+  // F2: Web Share API — prefer file share, degrade to text-only.
+  // Only ever rendered on the client after a finished game.
+  const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  const shareNative = useCallback(async () => {
+    if (!canNativeShare) return;
+    setShareState('sharing');
+    const text = buildShareText();
+    try {
+      const file = await shareCardFile(buildCardData());
+      const files = file ? [file] : [];
+      if (files.length > 0 && navigator.canShare?.({ files })) {
+        await navigator.share({ text, files });
+      } else {
+        await navigator.share({ text });
+      }
+      setShareState('done');
+      window.setTimeout(() => setShareState('idle'), 2500);
+    } catch (err) {
+      // AbortError = the user closed the share sheet; anything else we
+      // swallow too — Copy/Download remain available as fallbacks.
+      void err;
+      setShareState('idle');
+    }
+  }, [canNativeShare, buildShareText, buildCardData]);
 
   // Channel strips based on mode — every mode edits userHsb only.
   const renderSliders = () => {
@@ -257,7 +312,15 @@ export default function ColorGame() {
           Color QC · CIEDE2000 matching · 5 rounds
         </p>
       </div>
-      <div className="flex gap-2" role="group" aria-label="Color mode">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => setStatsOpen(true)}
+          aria-haspopup="dialog"
+          className="px-4 py-1.5 rounded-full font-mono text-[12px] uppercase tracking-wide bg-surface border border-hairline text-secondary hover:text-ink transition-colors"
+        >
+          Stats
+        </button>
+        <div className="flex gap-2" role="group" aria-label="Color mode">
         {(['hsb', 'rgb', 'cmyk'] as ColorMode[]).map((m) => (
           <button
             key={m}
@@ -272,24 +335,50 @@ export default function ColorGame() {
             {m}
           </button>
         ))}
+        </div>
       </div>
     </header>
   );
+
+  // Daily-completed state: finished today's proof (best score shown, replays allowed).
+  // lastDailyDate is only ever written on a completed Daily run.
+  const todayKey = utcDateKey();
+  const dailyDoneToday = gameMode === 'daily' && stats.lastDailyDate === todayKey;
 
   // Daily / Practice mode line
   const modeLine = (
     <div className="flex flex-wrap items-baseline justify-between gap-2 mt-4">
       <p className="font-mono tabular-nums text-[12px] uppercase tracking-wide text-secondary">
         {gameMode === 'daily'
-          ? <>Daily Challenge · {utcDateKey()} · Resets in <span className="text-ink">{countdown}</span></>
-          : 'Practice · Unlimited random proofs'}
+          ? <>Daily Challenge · {todayKey} · Resets in <span className="text-ink">{countdown}</span></>
+          : 'Practice · Endless random proofs · 5 rounds per run'}
       </p>
       <button
         onClick={gameMode === 'daily' ? startPractice : startDaily}
         className="font-mono text-[12px] uppercase tracking-wide text-accent hover:underline"
       >
-        {gameMode === 'daily' ? 'Switch to Practice →' : 'Switch to Daily →'}
+        {gameMode === 'daily'
+          ? 'Switch to Practice →'
+          : (dailyDoneToday ? "Replay today's proof →" : 'Switch to Daily →')}
       </button>
+    </div>
+  );
+
+  // F4: badge shown while today's Daily is already completed
+  const dailyDoneBadge = dailyDoneToday && (
+    <div
+      className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border border-success/40 bg-success/5 rounded-[4px] px-4 py-2.5"
+      role="status"
+    >
+      <span className="font-bold uppercase tracking-wide text-[12px]" style={{ color: '#1E8A4C' }}>
+        ✓ Today&apos;s calibration complete
+      </span>
+      <span className="font-mono tabular-nums text-[12px] text-ink">
+        {stats.lastDailyScore}/500 · {ratingLabelForScore(stats.lastDailyScore)}
+      </span>
+      <span className="font-mono text-[11px] uppercase tracking-wide text-secondary">
+        Streak {stats.currentStreak} {stats.currentStreak === 1 ? 'day' : 'days'}
+      </span>
     </div>
   );
 
@@ -304,6 +393,7 @@ export default function ColorGame() {
       <div className="max-w-5xl mx-auto px-4 py-6">
         {header}
         {modeLine}
+        {statsOpen && <StatsModal stats={stats} onClose={() => setStatsOpen(false)} />}
 
         <div
           className="mt-6 bg-surface border border-hairline rounded-[8px] p-6 md:p-8"
@@ -324,7 +414,7 @@ export default function ColorGame() {
               {/* F3: streak & personal best (streak daily-only) */}
               <p className="font-mono tabular-nums text-[12px] uppercase tracking-wide text-secondary mt-3">
                 {gameMode === 'daily' && (
-                  <>Streak <span className="text-ink">{stats.streak} {stats.streak === 1 ? 'day' : 'days'}</span> · </>
+                  <>Streak <span className="text-ink">{stats.currentStreak} {stats.currentStreak === 1 ? 'day' : 'days'}</span> · </>
                 )}
                 Best <span className="text-ink">{stats.bestScore}</span>
               </p>
@@ -390,6 +480,15 @@ export default function ColorGame() {
 
           {/* F2: share actions */}
           <div className="mt-6 flex flex-wrap gap-3">
+            {canNativeShare && (
+              <button
+                onClick={shareNative}
+                disabled={shareState === 'sharing'}
+                className="px-6 py-2.5 bg-accent text-white font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:opacity-90 transition-opacity disabled:opacity-60"
+              >
+                {shareState === 'sharing' ? 'Sharing…' : shareState === 'done' ? '✓ Shared' : 'Share'}
+              </button>
+            )}
             <button
               onClick={shareCard}
               className="px-6 py-2.5 bg-ink text-surface font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:opacity-90 transition-opacity"
@@ -419,6 +518,7 @@ export default function ColorGame() {
     return (
       <div className="max-w-5xl mx-auto px-4 py-6">
         {header}
+        {statsOpen && <StatsModal stats={stats} onClose={() => setStatsOpen(false)} />}
         <div className="py-16" aria-hidden="true" />
       </div>
     );
@@ -428,6 +528,8 @@ export default function ColorGame() {
     <div className="max-w-5xl mx-auto px-4 py-6">
       {header}
       {modeLine}
+      {dailyDoneBadge}
+      {statsOpen && <StatsModal stats={stats} onClose={() => setStatsOpen(false)} />}
 
       <div className="grid gap-x-8 gap-y-6 md:grid-cols-12 mt-4">
         {/* 左 5 列：TARGET + YOUR PRINT 打样卡 */}
@@ -459,25 +561,31 @@ export default function ColorGame() {
           </p>
         </div>
 
-        {/* 右 7 列：进度细线 + 通道条 + 操作 */}
-        <div className="md:col-span-7">
-          <div className="flex justify-between font-mono tabular-nums text-[12px] uppercase tracking-wide text-secondary">
+        {/* 右 7 列：进度细线 + 通道条 + 操作 + 仪器面板 */}
+        {/* Desktop order: progress → sliders → submit → instrument.
+            Mobile order: progress → sliders → instrument → sticky submit. */}
+        <div className="md:col-span-7 flex flex-col">
+          <div className="order-1 flex justify-between font-mono tabular-nums text-[12px] uppercase tracking-wide text-secondary">
             <span>Round {String(round).padStart(2, '0')}/{String(TOTAL_ROUNDS).padStart(2, '0')}</span>
             <span>Total {totalScore} / {TOTAL_ROUNDS * 100}</span>
           </div>
-          <div className="h-[2px] bg-hairline mt-2" aria-hidden="true">
+          <div className="order-2 h-[2px] bg-hairline mt-2" aria-hidden="true">
             <div
               className="h-full bg-accent transition-[width] duration-300"
               style={{ width: `${(history.length / TOTAL_ROUNDS) * 100}%` }}
             />
           </div>
 
-          <div className="mt-6 bg-surface border border-hairline rounded-[8px] p-5 space-y-5">
+          <div className="order-2 mt-6 bg-surface border border-hairline rounded-[8px] p-5 space-y-5">
             {renderSliders()}
           </div>
 
+          <div className="order-3 md:order-4 mt-6">
+            <InstrumentPanel liveDeltaE={deltaE2000(targetColor, userColor)} history={history} />
+          </div>
+
           {gameState === 'playing' ? (
-            <div className="mt-6 max-md:sticky max-md:bottom-0 max-md:bg-canvas max-md:py-3 max-md:border-t max-md:border-hairline">
+            <div className="order-4 md:order-3 mt-6 max-md:sticky max-md:bottom-0 max-md:bg-canvas max-md:py-3 max-md:border-t max-md:border-hairline">
               <button
                 onClick={submitGuess}
                 className="w-full md:w-auto px-8 py-3 bg-ink text-surface font-bold uppercase tracking-wide text-[13px] rounded-[4px] hover:opacity-90 transition-opacity"
@@ -486,7 +594,7 @@ export default function ColorGame() {
               </button>
             </div>
           ) : (
-            <div className="mt-6 border-t border-hairline pt-5" role="status" aria-live="polite">
+            <div className="order-4 md:order-3 mt-6 border-t border-hairline pt-5" role="status" aria-live="polite">
               <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
                 <p className="font-mono tabular-nums text-[48px] leading-none text-ink">
                   <CountUp value={score} />
@@ -506,18 +614,85 @@ export default function ColorGame() {
               </div>
             </div>
           )}
-
-          {history.length > 0 && (
-            <p className="mt-6 font-mono tabular-nums text-[12px] uppercase tracking-wide text-secondary">
-              QC log&nbsp;&nbsp;
-              {history.map((h) => (
-                <span key={h.round} className="mr-3">
-                  R{h.round} <span style={{ color: scoreColor(h.score) }}>{h.score}</span>
-                </span>
-              ))}
-            </p>
-          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Instrument panel — live ΔE readout, proximity gauge, and the proof log.
+// The liveDeltaE prop is computed in the parent render from current slider
+// state (deltaE2000 is pure math; no extra state, no debounce needed at this
+// scale). The reading is intentionally not aria-live: it changes on every
+// slider tick and would flood screen readers — submitted feedback already
+// announces politely elsewhere.
+function InstrumentPanel({ liveDeltaE, history }: { liveDeltaE: number; history: RoundResult[] }) {
+  const display = Math.min(99.9, liveDeltaE);
+  const color = deltaEColor(liveDeltaE);
+  const fillPct = Math.max(0, Math.min(100, 100 - liveDeltaE));
+
+  return (
+    <div className="instrument-panel bg-surface border border-hairline rounded-[8px] p-5">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-[11px] uppercase tracking-wide text-secondary">
+          Calibration monitor · CIEDE2000
+        </p>
+        <span
+          className="w-2 h-2 rounded-full shrink-0"
+          style={{ backgroundColor: color }}
+          aria-hidden="true"
+        />
+      </div>
+
+      {/* Live ΔE readout */}
+      <p className="font-mono tabular-nums font-bold text-[56px] leading-none mt-4" style={{ color }}>
+        ΔE {display.toFixed(1)}
+      </p>
+      <p className="font-mono text-[11px] uppercase tracking-wide text-secondary mt-2">
+        {deltaEVerdict(liveDeltaE)}
+      </p>
+
+      {/* Proximity gauge: fill = clamp(100 − ΔE)/100, with scale ticks */}
+      <div className="mt-4">
+        <div className="h-3 bg-canvas border border-hairline rounded-[2px] overflow-hidden relative" aria-hidden="true">
+          <div
+            className="h-full transition-[width] duration-150"
+            style={{ width: `${fillPct}%`, backgroundColor: color }}
+          />
+        </div>
+        <div className="flex justify-between mt-1 font-mono tabular-nums text-[10px] text-secondary" aria-hidden="true">
+          <span>ΔE 100</span>
+          <span>75</span>
+          <span>50</span>
+          <span>25</span>
+          <span>0</span>
+        </div>
+        <p className="sr-only">
+          Proximity {fillPct.toFixed(0)} percent; delta E {display.toFixed(1)}
+        </p>
+      </div>
+
+      {/* Proof log: compact record of this run's completed rounds */}
+      <div className="mt-5 pt-4 border-t border-hairline">
+        <p className="font-mono text-[11px] uppercase tracking-wide text-secondary">Proof log</p>
+        {history.length === 0 ? (
+          <p className="font-mono text-[12px] text-secondary mt-2">
+            No proofs submitted yet — dial in the match and submit to log round 01.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-1.5">
+            {history.map((h) => (
+              <li key={h.round} className="flex items-center gap-3 font-mono tabular-nums text-[12px]">
+                <span className="text-secondary w-6 shrink-0">R{String(h.round).padStart(2, '0')}</span>
+                <span className="inline-block w-4 h-4 rounded-[2px] border border-hairline shrink-0" style={{ backgroundColor: h.target }} role="img" aria-label={`Target ${h.target}`} />
+                <span className="inline-block w-4 h-4 rounded-[2px] border border-hairline shrink-0" style={{ backgroundColor: h.guess }} role="img" aria-label={`Your print ${h.guess}`} />
+                <span className="text-secondary text-[11px] truncate">ΔE {h.deltaE.toFixed(1)}</span>
+                <span className="ml-auto font-bold" style={{ color: scoreColor(h.score) }}>{h.score}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

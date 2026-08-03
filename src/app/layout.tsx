@@ -13,11 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 const DESCRIPTION =
-  "Free color matching game: match the target color with HSB, RGB, or CMYK sliders. Scored by CIEDE2000 color difference — the closer your eye, the higher your score.";
+  "Free daily color matching challenge: match the target color with HSB, RGB, or CMYK sliders. Scored by CIEDE2000 color difference — the closer your eye, the higher your score.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://toontonegame.org"),
-  title: "ToonTone Challenge — Free Color Matching Game",
+  title: "ToonTone Proofing Lab — Daily Color Matching Challenge",
   description: DESCRIPTION,
   alternates: {
     canonical: "/",
@@ -25,21 +25,21 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: "https://toontonegame.org/",
-    siteName: "ToonTone Challenge",
-    title: "ToonTone Challenge — Free Color Matching Game",
+    siteName: "ToonTone Proofing Lab",
+    title: "ToonTone Proofing Lab — Daily Color Matching Challenge",
     description: DESCRIPTION,
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "ToonTone Challenge — match the target color with HSB, RGB, or CMYK sliders",
+        alt: "ToonTone Proofing Lab — match the target color with HSB, RGB, or CMYK sliders",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ToonTone Challenge — Free Color Matching Game",
+    title: "ToonTone Proofing Lab — Daily Color Matching Challenge",
     description: DESCRIPTION,
     images: ["/og-image.png"],
   },

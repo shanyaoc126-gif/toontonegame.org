@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { PageShell, H1, H2, H3, P, UL, QA, DataTable, CtaBlock, JsonLd } from '../components/ContentPage';
+import { PageShell, H1, H2, H3, P, QA, DataTable, CtaBlock, JsonLd } from '../components/ContentPage';
 
 export const metadata: Metadata = {
   title: 'How to Play ToonTone: Rules, HSB Tips & Scoring',
@@ -15,7 +15,7 @@ const jsonLd = {
       '@type': 'HowTo',
       name: 'How to Play ToonTone',
       step: [
-        { '@type': 'HowToStep', name: 'Open the lab and pick a mode', text: 'The home page starts you directly on today\'s Daily Challenge — the same five target colors for every player on the planet. If you want reps without stakes, switch to Practice mode for unlimited random proofs. Both modes use identical rules and scoring.' },
+        { '@type': 'HowToStep', name: 'Open the lab and pick a mode', text: 'The home page starts you directly on today\'s Daily Challenge — the same five target colors for every player on the planet. If you want reps without stakes, switch to Practice mode for endless random proofs — 5 rounds per run. Both modes use identical rules and scoring.' },
         { '@type': 'HowToStep', name: 'Read the proof', text: 'Each round shows a single flat target swatch. No gradients, no texture, no hints — just one color your eye has to hold while your hands work the sliders. Take a second to name what you see before touching anything.' },
         { '@type': 'HowToStep', name: 'Dial in your match', text: 'You get three slider channels. The default mode is HSB (hue, saturation, brightness); you can switch to RGB or CMYK at any time — the color you\'re building stays put, only the controls change.' },
         { '@type': 'HowToStep', name: 'Submit your proof', text: 'Hit submit when you think it would pass on press. The lab computes the CIEDE2000 color difference (ΔE) between your swatch and the target — no appeals, no rounding in your favor.' },
@@ -27,7 +27,7 @@ const jsonLd = {
       mainEntity: [
         { '@type': 'Question', name: 'Is it spelled toontone, toon tone, or toon tones?', acceptedAnswer: { '@type': 'Answer', text: 'All three spellings refer to the same genre of color matching game that spread from streaming clips. This site\'s brand is ToonTone Proofing Lab, at toontonegame.org. However you typed it, you found the proofing room.' } },
         { '@type': 'Question', name: 'How many rounds are in one game?', acceptedAnswer: { '@type': 'Answer', text: 'Five, always. Each round is scored out of 100, so a full game totals 500 points. The five-round format keeps a session under three minutes — short enough for a daily habit, long enough that one lucky round won\'t carry you.' } },
-        { '@type': 'Question', name: 'What\'s the difference between Daily Challenge and Practice?', acceptedAnswer: { '@type': 'Answer', text: 'The Daily Challenge gives every player worldwide the same five colors, seeded from the UTC date, and counts toward your streak. Practice mode deals unlimited random colors with identical scoring. Technique is built in Practice; reputations are made in the Daily.' } },
+        { '@type': 'Question', name: 'What\'s the difference between Daily Challenge and Practice?', acceptedAnswer: { '@type': 'Answer', text: 'The Daily Challenge gives every player worldwide the same five colors, seeded from the UTC date, and counts toward your streak. Practice mode deals endless random colors — 5 rounds per run — with identical scoring. Technique is built in Practice; reputations are made in the Daily.' } },
         { '@type': 'Question', name: 'Where is my streak stored?', acceptedAnswer: { '@type': 'Answer', text: 'On your device, in your browser\'s local storage. Nothing is uploaded, and there is no account to sync — clearing browser data or switching devices resets it.' } },
         { '@type': 'Question', name: 'Do I need an account or an app?', acceptedAnswer: { '@type': 'Answer', text: 'No. ToonTone runs entirely in the browser. There is no sign-up, no download, and nothing to install.' } },
         { '@type': 'Question', name: 'Does ToonTone work on mobile?', acceptedAnswer: { '@type': 'Answer', text: 'Yes. The proofing table is designed for phones as well as desktops — sliders are thumb-reachable and the full five-round loop works on a small screen.' } },
@@ -48,7 +48,7 @@ export default function HowToPlayPage() {
       <H2>The 5 Steps</H2>
 
       <H3>1. Open the lab and pick a mode</H3>
-      <P>The home page starts you directly on today&apos;s <strong>Daily Challenge</strong> — the same five target colors for every player on the planet. If you want reps without stakes, switch to <strong>Practice mode</strong> for unlimited random proofs. Both modes use identical rules and scoring.</P>
+      <P>The home page starts you directly on today&apos;s <strong>Daily Challenge</strong> — the same five target colors for every player on the planet. If you want reps without stakes, switch to <strong>Practice mode</strong> for endless random proofs — 5 rounds per run. Both modes use identical rules and scoring.</P>
 
       <H3>2. Read the proof</H3>
       <P>Each round shows a single flat target swatch. No gradients, no texture, no hints — just one color your eye has to hold while your hands work the sliders. Take a second to name what you see before touching anything: &quot;a dusty teal, fairly dark&quot; is a working hypothesis you can test.</P>
@@ -91,7 +91,7 @@ export default function HowToPlayPage() {
         Five, always. Each round is scored out of 100, so a full game totals 500 points. The five-round format keeps a session under three minutes — short enough for a daily habit, long enough that one lucky round won&apos;t carry you.
       </QA>
       <QA q="What's the difference between Daily Challenge and Practice?">
-        The Daily Challenge gives every player worldwide the same five colors, seeded from the UTC date, and counts toward your streak. Practice mode deals unlimited random colors with identical scoring. Technique is built in Practice; reputations are made in the Daily.
+        The Daily Challenge gives every player worldwide the same five colors, seeded from the UTC date, and counts toward your streak. Practice mode deals endless random colors — 5 rounds per run — with identical scoring. Technique is built in Practice; reputations are made in the Daily.
       </QA>
       <QA q="Where is my streak stored?">
         On your device, in your browser&apos;s local storage. Nothing is uploaded, and there is no account to sync — clearing browser data or switching devices resets it.

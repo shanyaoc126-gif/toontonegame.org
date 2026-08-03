@@ -24,6 +24,14 @@ export function renderShareCard(data: ShareCardData): HTMLCanvasElement {
 
   const MONO = '"Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
   const SANS = '"Geist", Arial, Helvetica, sans-serif';
+  drawShareCard(ctx, W, H, data, MONO, SANS);
+  return canvas;
+}
+
+function drawShareCard(
+  ctx: CanvasRenderingContext2D, W: number, H: number,
+  data: ShareCardData, MONO: string, SANS: string,
+): void {
 
   // Paper background
   ctx.fillStyle = CANVAS;
@@ -116,19 +124,45 @@ export function renderShareCard(data: ShareCardData): HTMLCanvasElement {
   ctx.fillStyle = SECONDARY;
   ctx.font = `400 20px ${MONO}`;
   ctx.fillText('toontonegame.org', 96, H - 18);
+}
 
-  return canvas;
+// Wait for webfonts so canvas text renders Geist instead of a fallback face.
+// Resolves immediately when the Font Loading API is unavailable.
+async function waitForFonts(): Promise<void> {
+  try {
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+  } catch {
+    // Fonts API missing or rejected — proceed with fallback fonts.
+  }
+}
+
+// Render the share card after fonts are ready. Prefer this over
+// renderShareCard for anything the user will actually see or share.
+export async function renderShareCardAsync(data: ShareCardData): Promise<HTMLCanvasElement> {
+  await waitForFonts();
+  return renderShareCard(data);
+}
+
+// PNG File for the Web Share API (or any File-based consumer).
+export async function shareCardFile(data: ShareCardData, filename = 'toontone-proof.png'): Promise<File | null> {
+  const canvas = await renderShareCardAsync(data);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) return null;
+  return new File([blob], filename, { type: 'image/png' });
 }
 
 export function downloadShareCard(data: ShareCardData, filename = 'toontone-proof.png'): void {
-  const canvas = renderShareCard(data);
-  canvas.toBlob((blob) => {
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, 'image/png');
+  renderShareCardAsync(data).then((canvas) => {
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  });
 }

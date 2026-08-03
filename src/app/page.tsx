@@ -33,7 +33,7 @@ const jsonLd = {
         {
           '@type': 'HowToStep',
           name: 'Pick a color mode',
-          text: 'Choose HSB, RGB, or CMYK sliders — whichever color model you think in. Practice mode offers unlimited random proofs.',
+          text: 'Choose HSB, RGB, or CMYK sliders — whichever color model you think in. Practice mode offers endless random proofs — 5 rounds per run.',
         },
         {
           '@type': 'HowToStep',

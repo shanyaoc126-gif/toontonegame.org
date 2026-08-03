@@ -125,9 +125,19 @@ input[type="range"]::-moz-range-thumb {
   animation: row-in 240ms ease-out both;
 }
 
+/* ————— 动效 ④：STATS 模态框淡入 ————— */
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.stats-modal-in {
+  animation: modal-in 200ms ease-out both;
+}
+
 /* ————— prefers-reduced-motion 降级 ————— */
 @media (prefers-reduced-motion: reduce) {
   .develop-overlay { display: none; }
   .proof-card { transition: none; }
-  .qc-stamp, .qc-row { animation: none; }
+  .qc-stamp, .qc-row, .stats-modal-in { animation: none; }
+  .instrument-panel * { transition: none !important; }
 }
