@@ -5,11 +5,19 @@
 //
 // Always presented as an approximation — never a diagnosis, never a substitute
 // for a clinical vision test.
+//
+// Colors follow the MindMarket palette; text-on-white variants are darkened
+// versions of the same hue so the stamps stay readable.
+
+const GRASS_TEXT = '#4d8b31';
+const SUNSHINE_TEXT = '#8a7500';
+const CORAL_TEXT = '#d94a35';
+const SKY_TEXT = '#1a6fb5';
 
 export interface VisionGrade {
   label: string; // e.g. "PROOFER"
   blurb: string; // one-line shop-floor reading
-  color: string; // QC palette from globals.css
+  color: string; // MindMarket palette, readable text variant
 }
 
 export function visionGradeFor(meanDeltaE: number): VisionGrade {
@@ -17,27 +25,27 @@ export function visionGradeFor(meanDeltaE: number): VisionGrade {
     return {
       label: 'PRESS-ROOM GRADE',
       blurb: 'Your eye signs off proofs the press would accept.',
-      color: '#00A6C0',
+      color: SKY_TEXT,
     };
   }
   if (meanDeltaE < 5) {
     return {
       label: 'PROOFER',
       blurb: 'A working proofreader’s eye — small errors, caught early.',
-      color: '#1E8A4C',
+      color: GRASS_TEXT,
     };
   }
   if (meanDeltaE < 10) {
     return {
       label: 'APPRENTICE',
       blurb: 'Learning the trade; the hue wheel is yours to master.',
-      color: '#D9A441',
+      color: SUNSHINE_TEXT,
     };
   }
   return {
     label: 'TRAINEE',
     blurb: 'First week on the floor — the sliders will teach you.',
-    color: '#DA3A2E',
+    color: CORAL_TEXT,
   };
 }
 

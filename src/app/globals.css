@@ -1,89 +1,158 @@
 @import "tailwindcss";
 
-/* ————— The Proofing Lab design tokens (方案 C) ————— */
+/* ————— MindMarket design tokens (storybook reskin) —————
+   Warm storybook on cream paper: oversized Inter headlines, sticker-soft
+   50px radii, no shadows — the canvas does the structural work. */
 @theme {
-  --color-canvas: #FCFBF7;    /* 打样纸白 */
-  --color-surface: #FFFFFF;   /* 面板 */
-  --color-hairline: #E3E0D6;  /* 细线：结构靠线不靠阴影 */
-  --color-ink: #141412;       /* 主文字 */
-  --color-secondary: #6E6A5E; /* 次级文字 */
-  --color-accent: #00A6C0;    /* 工艺青：焦点环/链接/进度线 */
-  --color-success: #1E8A4C;   /* QC 通过 */
-  --color-near: #D9A441;      /* QC 接近 */
-  --color-fail: #DA3A2E;      /* QC 失败 */
+  --color-canvas: #f5f1e4;    /* Cream Paper — structural canvas */
+  --color-surface: #ffffff;   /* Pure White — raised cards, floating nav */
+  --color-sunken: #e0dbce;    /* Sandstone — recessed surfaces */
+  --color-hairline: #d5d5d4;  /* Hairline Mist — low-contrast structure lines */
+  --color-ink: #2c2e2a;       /* Ink Black — primary text & borders */
+  --color-secondary: #80827f; /* Stone Gray — secondary text */
+  --color-accent: #8ed462;    /* Fresh Grass — single brand anchor */
+  --color-sky: #2ba0ff;       /* Sky Pop — decorative only */
+  --color-coral: #ff705d;     /* Coral Pop — decorative + ΔE "far" */
+  --color-sunshine: #f5e211;  /* Sunshine Pop — decorative + ΔE "mid" */
+  /* ΔE functional semantics (kept, reskinned): near=grass, mid=sunshine, far=coral */
+  --color-near: #8ed462;
+  --color-mid: #f5e211;
+  --color-far: #ff705d;
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), Arial, Helvetica, sans-serif;
+  --font-mono: var(--font-inter), Arial, Helvetica, sans-serif;
+}
+
+html {
+  background: #f5f1e4;
 }
 
 body {
-  background: #FCFBF7;
-  color: #141412;
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  background: #f5f1e4;
+  color: #2c2e2a;
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+  font-weight: 500;
 }
 
-/* 焦点环统一工艺青 */
+/* Focus ring — ink for contrast on cream */
 :focus-visible {
-  outline: 2px solid #00A6C0;
+  outline: 2px solid #2c2e2a;
   outline-offset: 2px;
 }
 
-/* ————— 滑块：18px 渐变轨道 + 游标卡尺 thumb ————— */
+/* ————— Typography: oversized Inter display ————— */
+.tt-display {
+  font-size: clamp(44px, 6.5vw, 88px);
+  font-weight: 500;
+  letter-spacing: -0.05em;
+  line-height: 1.02;
+}
+.tt-heading {
+  font-size: clamp(30px, 4vw, 52px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+.tt-label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ————— Sticker surfaces: white card + 2px ink border, big radius, no shadow ————— */
+.sticker-card {
+  background: #ffffff;
+  border: 2px solid #2c2e2a;
+  border-radius: 50px;
+}
+.sticker-nav {
+  background: #ffffff;
+  border: 2px solid #2c2e2a;
+  border-radius: 50px;
+}
+
+/* Pill buttons (50px feel via full radius) */
+.btn-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 13px;
+  padding: 10px 22px;
+  transition: opacity 150ms ease, background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  cursor: pointer;
+}
+.btn-grass { background: #8ed462; color: #2c2e2a; border: 2px solid #2c2e2a; }
+.btn-grass:hover { opacity: 0.85; }
+.btn-ink { background: #2c2e2a; color: #ffffff; border: 2px solid #2c2e2a; }
+.btn-ink:hover { opacity: 0.85; }
+.btn-ghost { background: #ffffff; color: #2c2e2a; border: 2px solid #2c2e2a; }
+.btn-ghost:hover { background: #f5f1e4; }
+.btn-quiet { background: transparent; color: #2c2e2a; border: 2px solid transparent; }
+.btn-quiet:hover { border-color: #d5d5d4; }
+
+/* ————— Sliders: chunky rounded track + round white thumb, ink 2px edge ————— */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  height: 18px;
-  border-radius: 4px;
+  width: 100%;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid #2c2e2a;
   outline: none;
   cursor: pointer;
 }
 input[type="range"]:focus-visible {
-  outline: 2px solid #00A6C0;
+  outline: 2px solid #2c2e2a;
   outline-offset: 4px;
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 2px;
-  background: #FFFFFF;
-  border: 1.5px solid #141412;
-  box-shadow: inset 0 -3px 0 #00A6C0; /* 底部 3px accent 定位线 */
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #2c2e2a;
+  transition: box-shadow 150ms ease;
 }
 input[type="range"]::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  border-radius: 2px;
-  background: #FFFFFF;
-  border: 1.5px solid #141412;
-  box-shadow: inset 0 -3px 0 #00A6C0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #2c2e2a;
+  transition: box-shadow 150ms ease;
+}
+input[type="range"]:hover::-webkit-slider-thumb,
+input[type="range"]:active::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px #8ed462;
+}
+input[type="range"]:hover::-moz-range-thumb,
+input[type="range"]:active::-moz-range-thumb {
+  box-shadow: 0 0 0 4px #8ed462;
 }
 
-/* ————— 色卡四角裁切标记（细线，不用阴影） ————— */
-.proof-frame {
-  padding: 12px;
-  background-image:
-    linear-gradient(#141412, #141412), linear-gradient(#141412, #141412),
-    linear-gradient(#141412, #141412), linear-gradient(#141412, #141412),
-    linear-gradient(#141412, #141412), linear-gradient(#141412, #141412),
-    linear-gradient(#141412, #141412), linear-gradient(#141412, #141412);
-  background-repeat: no-repeat;
-  background-size:
-    14px 1px, 1px 14px,
-    14px 1px, 1px 14px,
-    14px 1px, 1px 14px,
-    14px 1px, 1px 14px;
-  background-position:
-    left 0 top 0, left 0 top 0,
-    right 0 top 0, right 0 top 0,
-    left 0 bottom 0, left 0 bottom 0,
-    right 0 bottom 0, right 0 bottom 0;
+/* ————— Swatch plates: white card + ink border + big radius ————— */
+.swatch-card {
+  background: #ffffff;
+  border: 2px solid #2c2e2a;
+  border-radius: 34px;
+  padding: 10px;
 }
 
-/* ————— 动效 ①：新回合目标色从中性灰 300ms 显影 ————— */
+/* ————— Motion ①: new-round target develops from neutral gray ————— */
 @keyframes develop {
   from { opacity: 1; }
   to { opacity: 0; }
@@ -91,13 +160,13 @@ input[type="range"]::-moz-range-thumb {
 .develop-overlay {
   position: absolute;
   inset: 0;
-  border-radius: 8px;
-  background: #9C9A94; /* 中性灰相纸 */
+  border-radius: 24px;
+  background: #b9b4a6;
   animation: develop 300ms ease-out 60ms forwards;
   pointer-events: none;
 }
 
-/* ————— 动效 ②：提交后 YOUR PRINT 300ms 滑向 TARGET 50% 叠化 ————— */
+/* ————— Motion ②: submitted print slides onto target ————— */
 .proof-card {
   transition: transform 300ms ease, opacity 300ms ease;
 }
@@ -108,7 +177,7 @@ input[type="range"]::-moz-range-thumb {
   z-index: 10;
 }
 
-/* ————— 动效 ③：QC 印章 200ms rotate-in + 报告行依次展开 ————— */
+/* ————— Motion ③: PROOF REPORT stamp + row reveal ————— */
 @keyframes stamp-in {
   0% { opacity: 0; transform: rotate(8deg) scale(1.5); }
   100% { opacity: 1; transform: rotate(-4deg) scale(1); }
@@ -125,7 +194,7 @@ input[type="range"]::-moz-range-thumb {
   animation: row-in 240ms ease-out both;
 }
 
-/* ————— 动效 ④：STATS 模态框淡入 ————— */
+/* ————— Motion ④: modal overlays fade/slide in ————— */
 @keyframes modal-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
@@ -133,22 +202,6 @@ input[type="range"]::-moz-range-thumb {
 .stats-modal-in {
   animation: modal-in 200ms ease-out both;
 }
-
-/* ————— 色盲辅助：色块角落的形状编码角标 ————— */
-.shape-chip {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 6px;
-  background: #FCFBF7;
-  border: 1px solid #E3E0D6;
-  border-radius: 3px;
-  line-height: 0;
-}
-
-/* ————— 开局校准仪式：步骤切换 240ms 淡入 ————— */
 @keyframes ritual-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
@@ -157,7 +210,21 @@ input[type="range"]::-moz-range-thumb {
   animation: ritual-in 240ms ease-out both;
 }
 
-/* ————— 结算页 COLOR VISION PROFILE：ΔE 条 300ms 生长 ————— */
+/* ————— Color-vision assist: shape code corner chip ————— */
+.shape-chip {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  background: #ffffff;
+  border: 2px solid #2c2e2a;
+  border-radius: 999px;
+  line-height: 0;
+}
+
+/* ————— PROOF REPORT: ΔE bars grow in ————— */
 @keyframes bar-grow {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
@@ -167,11 +234,21 @@ input[type="range"]::-moz-range-thumb {
   animation: bar-grow 300ms ease-out both;
 }
 
-/* ————— prefers-reduced-motion 降级 ————— */
+/* ————— Paper-cut decorations (fixed corners, zero layout impact) ————— */
+.paper-decor {
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+}
+
+/* ————— prefers-reduced-motion: keep every degradation ————— */
 @media (prefers-reduced-motion: reduce) {
   .develop-overlay { display: none; }
   .proof-card { transition: none; }
   .qc-stamp, .qc-row, .stats-modal-in, .ritual-in { animation: none; }
   .profile-bar { animation: none; }
   .instrument-panel * { transition: none !important; }
+  input[type="range"]::-webkit-slider-thumb { transition: none; }
+  input[type="range"]::-moz-range-thumb { transition: none; }
 }

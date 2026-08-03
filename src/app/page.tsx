@@ -1,5 +1,5 @@
 import ColorGame from './components/ColorGame';
-import { SiteFooter, JsonLd } from './components/ContentPage';
+import { SiteFooter, PaperDecor, JsonLd } from './components/ContentPage';
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -28,7 +28,7 @@ const jsonLd = {
         {
           '@type': 'HowToStep',
           name: 'Open the lab',
-          text: 'The home page starts you directly on today\'s Daily Challenge — the same five target colors for every player, seeded from the UTC date. Each game has 5 rounds. On your first visit a skippable two-step pre-flight (monitor check + color vision assist) appears instead.',
+          text: 'The home page starts playing immediately: today\'s Daily Challenge begins automatically — the same five target colors for every player, seeded from the UTC date. Each game has 5 rounds. A monitor check and color vision assist live under the CALIBRATE button in the nav, any time you want them.',
         },
         {
           '@type': 'HowToStep',
@@ -57,10 +57,13 @@ const jsonLd = {
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-canvas py-8">
+    <main className="relative min-h-screen bg-canvas">
       <JsonLd data={jsonLd} />
-      <ColorGame />
-      <SiteFooter />
+      <PaperDecor />
+      <div className="relative z-10 flex flex-col min-h-screen">
+        <ColorGame />
+        <SiteFooter />
+      </div>
     </main>
   );
 }

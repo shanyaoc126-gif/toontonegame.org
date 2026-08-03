@@ -6,7 +6,7 @@
 
 import { ShapeId, shapeVertices } from '../lib/calibration';
 
-const INK = '#141412';
+const INK = '#2c2e2a';
 
 function Glyph({ shape, color = INK }: { shape: ShapeId; color?: string }) {
   if (shape === 'circle') {

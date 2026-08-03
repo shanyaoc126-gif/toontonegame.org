@@ -1,10 +1,10 @@
-// F2 share card — canvas-drawn 1200x630 PNG in the Proofing Lab visual
-// language: paper canvas, hairlines, mono data, QC stamp outline.
+// Share card — canvas-drawn 1200x630 PNG in the MindMarket storybook skin:
+// cream paper canvas, ink text, fresh-grass decoration, big rounded swatches.
 //
-// Batch 2: added the COLOR VISION grade line (vision grade from mean ΔE).
-// Layout is the same 1200x630 plate: score font tightened (110→84px) and the
-// per-round swatch pairs trimmed (120→92px) to free the strip above the
-// footer for the grade line.
+// Batch history:
+//   v4 — added the COLOR VISION grade line (vision grade from mean ΔE).
+//   MindMarket reskin — new palette + Inter; layout kept: 1200x630, score
+//   block, rotated rating stamp, 5 swatch pairs, COLOR VISION grade line.
 
 export interface ShareCardData {
   totalScore: number;      // out of 500
@@ -17,11 +17,17 @@ export interface ShareCardData {
   meanDeltaE?: number;     // printed next to the grade when present
 }
 
-const INK = '#141412';
-const SECONDARY = '#6E6A5E';
-const HAIRLINE = '#E3E0D6';
-const CANVAS = '#FCFBF7';
-const ACCENT = '#00A6C0';
+const CREAM = '#f5f1e4';
+const WHITE = '#ffffff';
+const INK = '#2c2e2a';
+const SECONDARY = '#80827f';
+const HAIRLINE = '#d5d5d4';
+const GRASS = '#8ed462';
+
+// Score text colors — readable MindMarket variants (same hue families).
+const GRASS_TEXT = '#4d8b31';
+const SUNSHINE_TEXT = '#8a7500';
+const CORAL_TEXT = '#d94a35';
 
 export function renderShareCard(data: ShareCardData): HTMLCanvasElement {
   const W = 1200, H = 630;
@@ -30,95 +36,110 @@ export function renderShareCard(data: ShareCardData): HTMLCanvasElement {
   canvas.height = H;
   const ctx = canvas.getContext('2d')!;
 
-  const MONO = '"Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
-  const SANS = '"Geist", Arial, Helvetica, sans-serif';
-  drawShareCard(ctx, W, H, data, MONO, SANS);
+  const SANS = '"Inter", Arial, Helvetica, sans-serif';
+  drawShareCard(ctx, W, H, data, SANS);
   return canvas;
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number, r: number,
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 function drawShareCard(
   ctx: CanvasRenderingContext2D, W: number, H: number,
-  data: ShareCardData, MONO: string, SANS: string,
+  data: ShareCardData, SANS: string,
 ): void {
-
-  // Paper background
-  ctx.fillStyle = CANVAS;
+  // Cream paper background + fresh-grass decoration band
+  ctx.fillStyle = CREAM;
   ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = GRASS;
+  ctx.fillRect(0, 0, W, 10); // top grass ribbon
+  ctx.beginPath();
+  ctx.arc(W - 90, H - 46, 56, 0, Math.PI * 2); // corner pop circle
+  ctx.globalAlpha = 0.35;
+  ctx.fill();
+  ctx.globalAlpha = 1;
 
   // Header
   ctx.fillStyle = INK;
-  ctx.font = `700 34px ${SANS}`;
-  ctx.fillText('TOONTONE PROOFING LAB', 60, 78);
+  ctx.font = `500 38px ${SANS}`;
+  ctx.fillText('ToonTone Proofing Lab', 60, 84);
   ctx.fillStyle = SECONDARY;
-  ctx.font = `400 20px ${MONO}`;
-  ctx.fillText(data.dateLine.toUpperCase(), 60, 112);
+  ctx.font = `400 20px ${SANS}`;
+  ctx.fillText(data.dateLine.toUpperCase(), 62, 118);
 
   // Header hairline
   ctx.strokeStyle = HAIRLINE;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(60, 136);
-  ctx.lineTo(W - 60, 136);
+  ctx.moveTo(60, 142);
+  ctx.lineTo(W - 60, 142);
   ctx.stroke();
 
-  // Score (mono, tabular feel) — tightened from 110px to make room below
+  // Score — oversized tight-tracked Inter digits
   ctx.fillStyle = INK;
-  ctx.font = `400 84px ${MONO}`;
-  ctx.fillText(String(data.totalScore), 60, 252);
+  ctx.font = `500 96px ${SANS}`;
+  ctx.fillText(String(data.totalScore), 56, 262);
   const scoreWidth = ctx.measureText(String(data.totalScore)).width;
   ctx.fillStyle = SECONDARY;
-  ctx.font = `400 34px ${MONO}`;
-  ctx.fillText('/500', 60 + scoreWidth + 14, 252);
+  ctx.font = `400 32px ${SANS}`;
+  ctx.fillText('/500', 60 + scoreWidth + 16, 262);
 
-  // QC stamp (rotated outline, rating color)
+  // Rating stamp (rotated rounded outline, readable rating color)
   ctx.save();
-  ctx.translate(W - 210, 200);
+  ctx.translate(W - 220, 208);
   ctx.rotate((-4 * Math.PI) / 180);
   ctx.strokeStyle = data.ratingColor;
   ctx.lineWidth = 3;
-  ctx.font = `700 26px ${SANS}`;
+  ctx.font = `500 26px ${SANS}`;
   const label = data.ratingLabel;
   const tw = ctx.measureText(label).width;
-  ctx.strokeRect(-tw / 2 - 22, -30, tw + 44, 54);
+  roundRect(ctx, -tw / 2 - 24, -32, tw + 48, 58, 18);
+  ctx.stroke();
   ctx.fillStyle = data.ratingColor;
   ctx.textAlign = 'center';
-  ctx.fillText(label, 0, 6);
+  ctx.fillText(label, 0, 8);
   ctx.restore();
   ctx.textAlign = 'left';
 
-  // Round swatch pairs: 5 columns, target over print (trimmed to 92px)
+  // Round swatch pairs: 5 columns, target over print, in white sticker cards
   const cols = 5;
   const sw = 92, gapX = 24;
   const totalW = cols * sw + (cols - 1) * gapX;
   const x0 = (W - totalW) / 2;
-  const y0 = 296;
-  ctx.font = `400 17px ${MONO}`;
+  const y0 = 302;
+  ctx.font = `500 17px ${SANS}`;
   data.rounds.slice(0, 5).forEach((r, i) => {
     const x = x0 + i * (sw + gapX);
-    // crop-mark style frame ticks around the pair
+
+    // white sticker card behind the pair
+    ctx.fillStyle = WHITE;
+    roundRect(ctx, x - 10, y0 - 10, sw + 20, sw * 2 + 10 + 20, 20);
+    ctx.fill();
     ctx.strokeStyle = INK;
-    ctx.lineWidth = 1;
-    const fx = x - 8, fy = y0 - 8, fw = sw + 16, fh = sw * 2 + 10 + 16;
-    const t = 14;
-    ctx.beginPath();
-    // top-left
-    ctx.moveTo(fx, fy + t); ctx.lineTo(fx, fy); ctx.lineTo(fx + t, fy);
-    // top-right
-    ctx.moveTo(fx + fw - t, fy); ctx.lineTo(fx + fw, fy); ctx.lineTo(fx + fw, fy + t);
-    // bottom-left
-    ctx.moveTo(fx, fy + fh - t); ctx.lineTo(fx, fy + fh); ctx.lineTo(fx + t, fy + fh);
-    // bottom-right
-    ctx.moveTo(fx + fw - t, fy + fh); ctx.lineTo(fx + fw, fy + fh); ctx.lineTo(fx + fw, fy + fh - t);
+    ctx.lineWidth = 2;
+    roundRect(ctx, x - 10, y0 - 10, sw + 20, sw * 2 + 10 + 20, 20);
     ctx.stroke();
 
     ctx.fillStyle = r.target;
-    ctx.fillRect(x, y0, sw, sw);
+    roundRect(ctx, x, y0, sw, sw, 14);
+    ctx.fill();
     ctx.fillStyle = r.guess;
-    ctx.fillRect(x, y0 + sw + 10, sw, sw);
+    roundRect(ctx, x, y0 + sw + 10, sw, sw, 14);
+    ctx.fill();
 
     // score under the pair
-    ctx.fillStyle = r.score >= 90 ? '#1E8A4C' : r.score >= 70 ? '#D9A441' : '#DA3A2E';
-    ctx.fillText(`R${i + 1} ${r.score}`, x, y0 + sw * 2 + 10 + 24);
+    ctx.fillStyle = r.score >= 90 ? GRASS_TEXT : r.score >= 70 ? SUNSHINE_TEXT : CORAL_TEXT;
+    ctx.fillText(`R${i + 1} ${r.score}`, x, y0 + sw * 2 + 10 + 34);
   });
 
   // COLOR VISION grade line — sits between the swatch strip and the footer
@@ -127,44 +148,45 @@ function drawShareCard(
       ? ` · MEAN ΔE ${data.meanDeltaE.toFixed(2)}`
       : '';
     const prefix = 'COLOR VISION: ';
-    ctx.font = `400 17px ${MONO}`;
+    ctx.font = `400 18px ${SANS}`;
     const prefixW = ctx.measureText(prefix).width;
-    ctx.font = `700 21px ${MONO}`;
+    ctx.font = `500 22px ${SANS}`;
     const gradeW = ctx.measureText(data.visionGrade).width;
-    ctx.font = `400 17px ${MONO}`;
+    ctx.font = `400 18px ${SANS}`;
     const suffixW = ctx.measureText(deltaEPart).width;
     const lineW = prefixW + gradeW + suffixW;
     let cx = (W - lineW) / 2;
-    const baseY = 566;
+    const baseY = 570;
     ctx.textAlign = 'left';
     ctx.fillStyle = SECONDARY;
-    ctx.font = `400 17px ${MONO}`;
+    ctx.font = `400 18px ${SANS}`;
     ctx.fillText(prefix, cx, baseY);
     cx += prefixW;
-    ctx.fillStyle = data.visionColor ?? ACCENT;
-    ctx.font = `700 21px ${MONO}`;
+    ctx.fillStyle = data.visionColor ?? GRASS_TEXT;
+    ctx.font = `500 22px ${SANS}`;
     ctx.fillText(data.visionGrade, cx, baseY);
     cx += gradeW;
     ctx.fillStyle = SECONDARY;
-    ctx.font = `400 17px ${MONO}`;
+    ctx.font = `400 18px ${SANS}`;
     ctx.fillText(deltaEPart, cx, baseY);
   }
 
-  // Footer hairline + URL + accent register line
+  // Footer hairline + URL + grass register line
   ctx.strokeStyle = HAIRLINE;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(60, H - 40);
   ctx.lineTo(W - 60, H - 40);
   ctx.stroke();
-  ctx.fillStyle = ACCENT;
-  ctx.fillRect(60, H - 30, 24, 3);
+  ctx.fillStyle = GRASS;
+  roundRect(ctx, 60, H - 28, 26, 6, 3);
+  ctx.fill();
   ctx.fillStyle = SECONDARY;
-  ctx.font = `400 20px ${MONO}`;
-  ctx.fillText('toontonegame.org', 96, H - 18);
+  ctx.font = `400 20px ${SANS}`;
+  ctx.fillText('toontonegame.org', 100, H - 18);
 }
 
-// Wait for webfonts so canvas text renders Geist instead of a fallback face.
+// Wait for webfonts so canvas text renders Inter instead of a fallback face.
 // Resolves immediately when the Font Loading API is unavailable.
 async function waitForFonts(): Promise<void> {
   try {
