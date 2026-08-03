@@ -1,0 +1,63 @@
+{
+  "slug": "ragdoll",
+  "name": "Ragdoll",
+  "nameZh": "布偶猫",
+  "zones": [
+    {
+      "id": "z1",
+      "part": "奶油底",
+      "completedFill": "#f6ecd9",
+      "target": {
+        "h": 39,
+        "s": 12,
+        "b": 96
+      },
+      "note": "奶油底：全身奶油色长毛底色，软得像一团云。"
+    },
+    {
+      "id": "z2",
+      "part": "海豹重点",
+      "completedFill": "#5d4738",
+      "target": {
+        "h": 24,
+        "s": 40,
+        "b": 36
+      },
+      "note": "海豹重点：耳朵、面罩与尾尖的海豹棕重点色。"
+    },
+    {
+      "id": "z3",
+      "part": "蓝眼",
+      "completedFill": "#8fc3e8",
+      "target": {
+        "h": 205,
+        "s": 38,
+        "b": 91
+      },
+      "note": "蓝眼：布偶标志性的湛蓝大圆眼。"
+    },
+    {
+      "id": "z4",
+      "part": "胸白绒",
+      "completedFill": "#fdfbf6",
+      "target": {
+        "h": 43,
+        "s": 3,
+        "b": 99
+      },
+      "note": "胸白绒：胸前更白的蓬松围脖毛。"
+    },
+    {
+      "id": "z5",
+      "part": "粉鼻",
+      "completedFill": "#f2b6ae",
+      "target": {
+        "h": 7,
+        "s": 28,
+        "b": 95
+      },
+      "note": "粉鼻：重点色脸上的一点粉鼻头。"
+    }
+  ],
+  "personality": "一抱就软成布偶的蓝眼睛大家闺秀，重点色是她的晚礼服。"
+}
