@@ -1,0 +1,76 @@
+{
+ "slug": "maine-coon",
+ "name": "Maine Coon",
+ "nameZh": "缅因猫",
+ "size": 640,
+ "rounds": 5,
+ "credit": "TheCatAPI (public pet photo service)",
+ "files": {
+  "orig": "maine-coon-orig.jpg",
+  "canvas": "maine-coon-canvas.jpg",
+  "masks": [
+   "maine-coon-z1.png",
+   "maine-coon-z2.png",
+   "maine-coon-z3.png",
+   "maine-coon-z4.png",
+   "maine-coon-z5.png"
+  ]
+ },
+ "zones": [
+  {
+   "id": "z1",
+   "part": "the pale under-fur",
+   "pixels": 86614,
+   "target": {
+    "h": 0,
+    "s": 7,
+    "b": 47
+   },
+   "completedFill": "#797070"
+  },
+  {
+   "id": "z2",
+   "part": "the cool shadow tones",
+   "pixels": 82713,
+   "target": {
+    "h": 264,
+    "s": 22,
+    "b": 9
+   },
+   "completedFill": "#141217"
+  },
+  {
+   "id": "z3",
+   "part": "the soft grey shadows",
+   "pixels": 80646,
+   "target": {
+    "h": 351,
+    "s": 10,
+    "b": 28
+   },
+   "completedFill": "#484142"
+  },
+  {
+   "id": "z4",
+   "part": "the cool shadow tones",
+   "pixels": 80327,
+   "target": {
+    "h": 250,
+    "s": 24,
+    "b": 10
+   },
+   "completedFill": "#141319"
+  },
+  {
+   "id": "z5",
+   "part": "the mid fur below",
+   "pixels": 59458,
+   "target": {
+    "h": 324,
+    "s": 15,
+    "b": 13
+   },
+   "completedFill": "#211c1f"
+  }
+ ]
+}

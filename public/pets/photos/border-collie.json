@@ -1,0 +1,76 @@
+{
+ "slug": "border-collie",
+ "name": "Border Collie",
+ "nameZh": "边境牧羊犬",
+ "size": 640,
+ "rounds": 5,
+ "credit": "Dog CEO API (open dog photo service)",
+ "files": {
+  "orig": "border-collie-orig.jpg",
+  "canvas": "border-collie-canvas.jpg",
+  "masks": [
+   "border-collie-z1.png",
+   "border-collie-z2.png",
+   "border-collie-z3.png",
+   "border-collie-z4.png",
+   "border-collie-z5.png"
+  ]
+ },
+ "zones": [
+  {
+   "id": "z1",
+   "part": "the golden body coat",
+   "pixels": 105671,
+   "target": {
+    "h": 26,
+    "s": 32,
+    "b": 34
+   },
+   "completedFill": "#57473b"
+  },
+  {
+   "id": "z2",
+   "part": "the head & ear coat",
+   "pixels": 96475,
+   "target": {
+    "h": 31,
+    "s": 54,
+    "b": 20
+   },
+   "completedFill": "#322517"
+  },
+  {
+   "id": "z3",
+   "part": "the golden body coat",
+   "pixels": 94408,
+   "target": {
+    "h": 23,
+    "s": 43,
+    "b": 22
+   },
+   "completedFill": "#382920"
+  },
+  {
+   "id": "z4",
+   "part": "the golden body coat",
+   "pixels": 76441,
+   "target": {
+    "h": 27,
+    "s": 50,
+    "b": 16
+   },
+   "completedFill": "#281d14"
+  },
+  {
+   "id": "z5",
+   "part": "the golden body coat",
+   "pixels": 76266,
+   "target": {
+    "h": 25,
+    "s": 30,
+    "b": 43
+   },
+   "completedFill": "#6e5b4d"
+  }
+ ]
+}
