@@ -52,6 +52,18 @@ function introCopy(slug: PetSlug): string {
       return 'The Shiba Inu runs on red-orange confidence, white brow spots, and a permanently welded grin. Five ink zones — match them all and the press runs in his honor.';
     case 'corgi':
       return 'The Pembroke Welsh Corgi is a limited edition on short legs: tan coat, four white socks, and one very large pink tongue. Five ink zones, calibrated by you.';
+    case 'golden-retriever':
+      return 'The Golden Retriever is a sun-warmed gradient of field gold with a tail that never stops. Calibrate the coat tones — and the meadow behind — and pull your own proof.';
+    case 'border-collie':
+      return 'The Border Collie is black, white and pure focus — amber eyes already herding your sliders. Five ink zones of warm brown and deep black, calibrated by you.';
+    case 'husky':
+      return 'The Siberian Husky is copper saddle, cream mask and one eyebrow permanently raised. Five ink zones of red-brown and white, calibrated by you.';
+    case 'samoyed':
+      return 'The Samoyed is a walking cloud with a welded-on smile. Five ink zones of near-white — the hardest calibration of all, because whites are never white.';
+    case 'siamese':
+      return 'The Siamese is cream silk with seal-brown points and two sapphire eyes. Five ink zones of pale body and dark mask, calibrated by you.';
+    case 'maine-coon':
+      return 'The Maine Coon is a smoke-grey gentle giant with lynx-tipped ears. Five ink zones of silver ruff and near-black mask, calibrated by you.';
   }
 }
 

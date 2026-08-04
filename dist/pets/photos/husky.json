@@ -1,0 +1,76 @@
+{
+ "slug": "husky",
+ "name": "Siberian Husky",
+ "nameZh": "哈士奇",
+ "size": 640,
+ "rounds": 5,
+ "credit": "Dog CEO API (open dog photo service)",
+ "files": {
+  "orig": "husky-orig.jpg",
+  "canvas": "husky-canvas.jpg",
+  "masks": [
+   "husky-z1.png",
+   "husky-z2.png",
+   "husky-z3.png",
+   "husky-z4.png",
+   "husky-z5.png"
+  ]
+ },
+ "zones": [
+  {
+   "id": "z1",
+   "part": "the golden body coat",
+   "pixels": 112207,
+   "target": {
+    "h": 40,
+    "s": 34,
+    "b": 57
+   },
+   "completedFill": "#928160"
+  },
+  {
+   "id": "z2",
+   "part": "the golden body coat",
+   "pixels": 110708,
+   "target": {
+    "h": 40,
+    "s": 37,
+    "b": 51
+   },
+   "completedFill": "#837352"
+  },
+  {
+   "id": "z3",
+   "part": "the head & ear coat",
+   "pixels": 92918,
+   "target": {
+    "h": 25,
+    "s": 43,
+    "b": 68
+   },
+   "completedFill": "#ad8263"
+  },
+  {
+   "id": "z4",
+   "part": "the golden body coat",
+   "pixels": 69973,
+   "target": {
+    "h": 28,
+    "s": 48,
+    "b": 16
+   },
+   "completedFill": "#281e15"
+  },
+  {
+   "id": "z5",
+   "part": "the head & ear coat",
+   "pixels": 61580,
+   "target": {
+    "h": 31,
+    "s": 39,
+    "b": 65
+   },
+   "completedFill": "#a58665"
+  }
+ ]
+}

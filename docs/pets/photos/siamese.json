@@ -1,0 +1,76 @@
+{
+ "slug": "siamese",
+ "name": "Siamese",
+ "nameZh": "暹罗猫",
+ "size": 640,
+ "rounds": 5,
+ "credit": "TheCatAPI (public pet photo service)",
+ "files": {
+  "orig": "siamese-orig.jpg",
+  "canvas": "siamese-canvas.jpg",
+  "masks": [
+   "siamese-z1.png",
+   "siamese-z2.png",
+   "siamese-z3.png",
+   "siamese-z4.png",
+   "siamese-z5.png"
+  ]
+ },
+ "zones": [
+  {
+   "id": "z1",
+   "part": "the bright chest & paws",
+   "pixels": 87371,
+   "target": {
+    "h": 220,
+    "s": 3,
+    "b": 92
+   },
+   "completedFill": "#e5e7eb"
+  },
+  {
+   "id": "z2",
+   "part": "the bright chest & paws",
+   "pixels": 62817,
+   "target": {
+    "h": 224,
+    "s": 6,
+    "b": 92
+   },
+   "completedFill": "#dbdfea"
+  },
+  {
+   "id": "z3",
+   "part": "the bright chest & paws",
+   "pixels": 58030,
+   "target": {
+    "h": 204,
+    "s": 2,
+    "b": 93
+   },
+   "completedFill": "#e9ecee"
+  },
+  {
+   "id": "z4",
+   "part": "the pale under-fur",
+   "pixels": 51142,
+   "target": {
+    "h": 43,
+    "s": 13,
+    "b": 21
+   },
+   "completedFill": "#36342f"
+  },
+  {
+   "id": "z5",
+   "part": "the grass & leafy backdrop",
+   "pixels": 110582,
+   "target": {
+    "h": 84,
+    "s": 42,
+    "b": 56
+   },
+   "completedFill": "#768e52"
+  }
+ ]
+}

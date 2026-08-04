@@ -1,0 +1,76 @@
+{
+ "slug": "samoyed",
+ "name": "Samoyed",
+ "nameZh": "萨摩耶",
+ "size": 640,
+ "rounds": 5,
+ "credit": "Dog CEO API (open dog photo service)",
+ "files": {
+  "orig": "samoyed-orig.jpg",
+  "canvas": "samoyed-canvas.jpg",
+  "masks": [
+   "samoyed-z1.png",
+   "samoyed-z2.png",
+   "samoyed-z3.png",
+   "samoyed-z4.png",
+   "samoyed-z5.png"
+  ]
+ },
+ "zones": [
+  {
+   "id": "z1",
+   "part": "the pale under-fur",
+   "pixels": 76753,
+   "target": {
+    "h": 60,
+    "s": 4,
+    "b": 74
+   },
+   "completedFill": "#bdbdb5"
+  },
+  {
+   "id": "z2",
+   "part": "the pale under-fur",
+   "pixels": 61326,
+   "target": {
+    "h": 43,
+    "s": 14,
+    "b": 60
+   },
+   "completedFill": "#989283"
+  },
+  {
+   "id": "z3",
+   "part": "the bright chest & paws",
+   "pixels": 59388,
+   "target": {
+    "h": 60,
+    "s": 0,
+    "b": 82
+   },
+   "completedFill": "#d2d2d1"
+  },
+  {
+   "id": "z4",
+   "part": "the soft grey shadows",
+   "pixels": 57859,
+   "target": {
+    "h": 150,
+    "s": 1,
+    "b": 74
+   },
+   "completedFill": "#bbbdbc"
+  },
+  {
+   "id": "z5",
+   "part": "the grass & leafy backdrop",
+   "pixels": 175965,
+   "target": {
+    "h": 108,
+    "s": 51,
+    "b": 36
+   },
+   "completedFill": "#365b2d"
+  }
+ ]
+}

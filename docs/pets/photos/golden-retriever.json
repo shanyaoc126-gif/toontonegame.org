@@ -1,0 +1,76 @@
+{
+ "slug": "golden-retriever",
+ "name": "Golden Retriever",
+ "nameZh": "金毛寻回犬",
+ "size": 640,
+ "rounds": 5,
+ "credit": "Dog CEO API (open dog photo service)",
+ "files": {
+  "orig": "golden-retriever-orig.jpg",
+  "canvas": "golden-retriever-canvas.jpg",
+  "masks": [
+   "golden-retriever-z1.png",
+   "golden-retriever-z2.png",
+   "golden-retriever-z3.png",
+   "golden-retriever-z4.png",
+   "golden-retriever-z5.png"
+  ]
+ },
+ "zones": [
+  {
+   "id": "z1",
+   "part": "the golden body coat",
+   "pixels": 57342,
+   "target": {
+    "h": 48,
+    "s": 68,
+    "b": 32
+   },
+   "completedFill": "#51461a"
+  },
+  {
+   "id": "z2",
+   "part": "the golden body coat",
+   "pixels": 54467,
+   "target": {
+    "h": 34,
+    "s": 55,
+    "b": 82
+   },
+   "completedFill": "#d09f5d"
+  },
+  {
+   "id": "z3",
+   "part": "the head & ear coat",
+   "pixels": 35236,
+   "target": {
+    "h": 29,
+    "s": 67,
+    "b": 72
+   },
+   "completedFill": "#b7783c"
+  },
+  {
+   "id": "z4",
+   "part": "the head & ear coat",
+   "pixels": 19627,
+   "target": {
+    "h": 30,
+    "s": 62,
+    "b": 24
+   },
+   "completedFill": "#3d2a17"
+  },
+  {
+   "id": "z5",
+   "part": "the grass & leafy backdrop",
+   "pixels": 298596,
+   "target": {
+    "h": 66,
+    "s": 58,
+    "b": 44
+   },
+   "completedFill": "#6a702f"
+  }
+ ]
+}
